@@ -56,7 +56,9 @@
     "README.md",
     "docs",
     "packages/native-ui-core/dist/",
-    "packages/native-ui-core/src/"
+    "packages/native-ui-core/src/",
+    "packages/native-ui-core/ios/Sources/",
+    "packages/native-ui-core/ios/Tests/"
   ],
   "scripts": {
     "build": "npm run build --workspace @webview-native-ui/core && npm run sync:core && npm run clean && npm run docgen && tsc && node scripts/embed-core.mjs && rollup -c rollup.config.mjs",

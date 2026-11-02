@@ -32,7 +32,6 @@
     "src",
     "ios/Sources",
     "android/src/main",
-    "Package.swift",
     "LICENSE",
     "README.md",
     "ios/Tests"

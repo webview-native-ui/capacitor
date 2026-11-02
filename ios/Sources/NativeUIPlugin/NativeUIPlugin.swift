@@ -1,3 +1,6 @@
+#if SWIFT_PACKAGE
+@_exported import NativeUICore
+#endif
 import WebViewNativeUIEngine
 import Capacitor
 import UIKit

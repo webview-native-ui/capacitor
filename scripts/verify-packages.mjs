@@ -88,7 +88,7 @@ try {
         readFileSync(join(packageRoot, 'Package.swift'), 'utf8').includes('name: "RdlaboCapacitorNativeUi"'),
         'Capacitor-generated SPM product must exist',
       );
-      assert(files.has('ios/Sources/NativeUIPlugin/Core/NativeUIController.swift'));
+      assert(files.has('packages/native-ui-core/ios/Sources/NativeUICore/NativeUIController.swift'));
       assert(files.has('android/src/main/java/shared-core/dev/rdlabo/nativeui/core/NativeUIController.kt'));
       assert(files.has('android/build.gradle'));
       assert(files.has('android/proguard-rules.pro'));

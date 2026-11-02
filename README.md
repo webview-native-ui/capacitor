@@ -79,7 +79,7 @@ npm test
 npm run test:packages
 ```
 
-Shared DOM and renderer implementation is maintained in the local `packages/native-ui-core` workspace. This repository owns Capacitor registration and the host adapters. `ios/Sources/NativeUIPlugin/Core` and `android/src/main/java/shared-core` are generated from the local Core sources by `npm run sync:core`; edit Core, not these copies. The generated sources are committed so Git-based SwiftPM consumers do not need Node.js. Existing native module and Kotlin symbol names are preserved for app-local extensions.
+Shared DOM and renderer implementation is maintained in the local `packages/native-ui-core` workspace. This repository owns Capacitor registration and the host adapters. `android/src/main/java/shared-core` is generated from the local Core sources by `npm run sync:core`; edit Core, not this copy. SwiftPM and CocoaPods compile the shared Swift sources directly from `packages/native-ui-core/ios/Sources`. Git-based SwiftPM consumers do not need Node.js. Existing native module and Kotlin symbol names are preserved for app-local extensions.
 
 The repository root remains the npm plugin: `src`, `ios`, `android`, and `package.json` live together. Its TypeScript unit tests live in `tests`; Swift and Android tests live with the plugin. `examples/native-ui-html` demonstrates use without the Ionic theme.
 
@@ -110,6 +110,14 @@ This repository was extracted from `webview-native-ui/ionic-theme-ios27` commit 
 
 Core lives in `packages/native-ui-core` in this repository. Run `npm ci`, `npm run build`, and `npm test` from the repository root; no separate Core publication or checkout is required. The build embeds Core JavaScript and declarations into the plugin archive. Core is a private workspace, not a separately released npm dependency.
 
-Edit shared TypeScript, Swift and Kotlin in `packages/native-ui-core`. `npm run sync:core` regenerates the native copies; `npm run check:core` detects drift. Shared renderer/DOM tests run alongside Capacitor adapter tests through the root test command. Native Core tests remain under its `ios` and `android` directories.
+Edit shared TypeScript, Swift and Kotlin in `packages/native-ui-core`. `npm run sync:core` regenerates the Android copy; `npm run check:core` detects drift. Shared renderer/DOM tests run alongside Capacitor adapter tests through the root test command. Native Core tests remain under its `ios` and `android` directories.
 
 Capacitor migrations run from this repository root. `package.json`, `Package.swift`, the podspec and `android/` retain their standard locations. Validate native builds after SDK migrations; retaining the layout does not guarantee compatibility with future migration tools.
+
+### Swift Package consumers
+
+Add `https://github.com/webview-native-ui/capacitor-plugin.git` in Xcode and select the `NativeUICore` product to use `import NativeUICore` without linking the Capacitor adapter. Before this change is released, select the `refactor/extract-shared-core` branch. Both products share the repository release tags; SwiftPM can still fetch Capacitor while resolving the package dependencies.
+
+Capacitor apps continue to use the `RdlaboCapacitorNativeUi` product and `import NativeUIPlugin`. That module re-exports Core, so existing `NativeUI.register` calls keep using the same registration state as the adapter. The root manifest owns both targets; there is no separate nested Swift package.
+
+CocoaPods continues to compile the adapter and shared sources into the existing plugin pod. This change does not publish a standalone Core pod or implement a Cordova adapter.

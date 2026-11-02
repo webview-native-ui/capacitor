@@ -3,10 +3,7 @@ import { cpSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../packages/native-ui-core/', import.meta.url));
-const targets = [
-  ['ios/Sources/NativeUICore', 'ios/Sources/NativeUIPlugin/Core'],
-  ['android/src/main/java', 'android/src/main/java/shared-core'],
-];
+const targets = [['android/src/main/java', 'android/src/main/java/shared-core']];
 const files = (root) =>
   readdirSync(root, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(join(root, e.name)) : [join(root, e.name)]));
 for (const [source, target] of targets) {
