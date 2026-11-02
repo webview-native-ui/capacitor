@@ -132,6 +132,25 @@ try {
     ],
     { cwd: dir, stdio: 'inherit' },
   );
+  // Source fixtures and public entrypoints can coexist in one consumer bundle.
+  const mixedConsumer = join(dir, 'mixed-consumer.mjs');
+  buildSync({
+    stdin: {
+      contents: `
+        import { enableNativeUI as source } from './node_modules/@rdlabo/capacitor-native-ui/src/core.ts';
+        import { enableNativeUI as published } from '@rdlabo/capacitor-native-ui/core';
+        if (source !== published) throw new Error('Source and public entries must share Core state');
+      `,
+      resolveDir: dir,
+      loader: 'ts',
+    },
+    bundle: true,
+    outfile: mixedConsumer,
+    format: 'esm',
+    platform: 'node',
+    external: ['@capacitor/core'],
+  });
+  execFileSync(process.execPath, [mixedConsumer], { cwd: dir, stdio: 'inherit' });
   const consumer = join(dir, 'consumer.ts');
   writeFileSync(
     consumer,

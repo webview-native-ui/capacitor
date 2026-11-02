@@ -21,7 +21,9 @@ test('Core works without an installed host and rejects accidental host replaceme
   installNativeUIHost(host);
   installNativeUIHost(host);
   expect(await nativeUIPlugin.getWebViewMetrics()).toEqual({ radius: 42 });
-  expect(() => installNativeUIHost({ ...host })).toThrow('already installed');
+  installNativeUIHost({ ...host, getPlatform: () => 'unexpected-replacement' });
+  expect(nativeUIHost.getPlatform()).toBe('ios');
+  expect(() => installNativeUIHost({ ...host, plugin: {} as typeof host.plugin })).toThrow('already installed');
 });
 
 test('host listener teardown still runs after registration times out', async () => {

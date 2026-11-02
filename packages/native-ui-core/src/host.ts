@@ -12,10 +12,10 @@ export interface NativeUIHost {
 }
 let host: NativeUIHost | undefined;
 
-/** Install once per module instance, before starting a native session. */
+/** Install before starting a session; repeated adapters may share the same transport. */
 export const installNativeUIHost = (value: NativeUIHost): void => {
-  if (host && host !== value) throw new Error('A Native UI host is already installed');
-  host = value;
+  if (host && host.plugin !== value.plugin) throw new Error('A Native UI host is already installed');
+  host ??= value;
 };
 export const nativeUIHost = {
   getPlatform: () => host?.getPlatform() ?? 'web',

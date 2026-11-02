@@ -37,7 +37,7 @@
     "ios/Tests"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
     "test": "vitest run",
     "check:boundary": "node scripts/check-boundary.mjs",
     "prepack": "npm run build && npm run check:boundary",
