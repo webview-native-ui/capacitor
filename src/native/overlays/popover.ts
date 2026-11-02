@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/overlays/popover';
+export * from '../../../packages/native-ui-core/dist/native/overlays/popover.js';

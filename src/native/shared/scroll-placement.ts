@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/scroll-placement';
+export * from '../../../packages/native-ui-core/dist/native/shared/scroll-placement.js';

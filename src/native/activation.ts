@@ -1,2 +1,2 @@
 import '../host.js';
-export * from '@webview-native-ui/core/native/activation';
+export * from '../../packages/native-ui-core/dist/native/activation.js';

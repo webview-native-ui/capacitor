@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/dom';
+export * from '../../../packages/native-ui-core/dist/native/shared/dom.js';

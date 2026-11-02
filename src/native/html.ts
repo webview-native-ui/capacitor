@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/html';
+export * from '../../packages/native-ui-core/dist/native/html.js';

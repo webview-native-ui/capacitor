@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/components/ion-button';
+export * from '../../../packages/native-ui-core/dist/native/components/ion-button.js';

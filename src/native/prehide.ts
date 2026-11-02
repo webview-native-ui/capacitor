@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/prehide';
+export * from '../../packages/native-ui-core/dist/native/prehide.js';

@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/clipping';
+export * from '../../../packages/native-ui-core/dist/native/shared/clipping.js';

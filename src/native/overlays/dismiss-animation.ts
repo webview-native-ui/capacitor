@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/overlays/dismiss-animation';
+export * from '../../../packages/native-ui-core/dist/native/overlays/dismiss-animation.js';

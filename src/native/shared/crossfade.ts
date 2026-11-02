@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/crossfade';
+export * from '../../../packages/native-ui-core/dist/native/shared/crossfade.js';

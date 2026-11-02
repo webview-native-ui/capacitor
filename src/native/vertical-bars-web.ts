@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/vertical-bars-web';
+export * from '../../packages/native-ui-core/dist/native/vertical-bars-web.js';

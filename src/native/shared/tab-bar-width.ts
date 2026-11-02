@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/tab-bar-width';
+export * from '../../../packages/native-ui-core/dist/native/shared/tab-bar-width.js';

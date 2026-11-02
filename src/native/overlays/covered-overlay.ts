@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/overlays/covered-overlay';
+export * from '../../../packages/native-ui-core/dist/native/overlays/covered-overlay.js';

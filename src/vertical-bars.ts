@@ -1,2 +1,2 @@
 import './host.js';
-export * from '@webview-native-ui/core/vertical-bars';
+export * from '../packages/native-ui-core/dist/vertical-bars.js';

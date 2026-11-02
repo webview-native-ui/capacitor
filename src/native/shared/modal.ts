@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/modal';
+export * from '../../../packages/native-ui-core/dist/native/shared/modal.js';

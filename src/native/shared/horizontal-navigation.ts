@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/horizontal-navigation';
+export * from '../../../packages/native-ui-core/dist/native/shared/horizontal-navigation.js';

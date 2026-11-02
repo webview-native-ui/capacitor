@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/legacy-layout';
+export * from '../../packages/native-ui-core/dist/native/legacy-layout.js';

@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/transition-identity';
+export * from '../../../packages/native-ui-core/dist/native/shared/transition-identity.js';

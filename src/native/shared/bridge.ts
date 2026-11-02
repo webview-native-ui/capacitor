@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/bridge';
+export * from '../../../packages/native-ui-core/dist/native/shared/bridge.js';

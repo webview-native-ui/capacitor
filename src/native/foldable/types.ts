@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/foldable/types';
+export * from '../../../packages/native-ui-core/dist/native/foldable/types.js';

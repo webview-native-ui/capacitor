@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/control-options';
+export * from '../../../packages/native-ui-core/dist/native/shared/control-options.js';

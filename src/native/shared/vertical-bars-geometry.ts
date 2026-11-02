@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/vertical-bars-geometry';
+export * from '../../../packages/native-ui-core/dist/native/shared/vertical-bars-geometry.js';

@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/projection-id';
+export * from '../../../packages/native-ui-core/dist/native/shared/projection-id.js';

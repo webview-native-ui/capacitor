@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/overlays/styles';
+export * from '../../../packages/native-ui-core/dist/native/overlays/styles.js';

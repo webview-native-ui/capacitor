@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/overlays/focus';
+export * from '../../../packages/native-ui-core/dist/native/overlays/focus.js';

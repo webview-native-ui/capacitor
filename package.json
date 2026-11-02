@@ -54,7 +54,9 @@
     "RdlaboCapacitorNativeUi.podspec",
     "LICENSE",
     "README.md",
-    "docs"
+    "docs",
+    "packages/native-ui-core/dist/",
+    "packages/native-ui-core/src/"
   ],
   "scripts": {
     "build": "npm run build --workspace @webview-native-ui/core && npm run sync:core && npm run clean && npm run docgen && tsc && node scripts/embed-core.mjs && rollup -c rollup.config.mjs",
@@ -114,8 +116,7 @@
     "prettier": "^3.6.2",
     "rollup": "^4.53.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.0",
-    "@webview-native-ui/core": "*"
+    "vitest": "^4.0.0"
   },
   "unpkg": "./dist/plugin.js",
   "workspaces": [

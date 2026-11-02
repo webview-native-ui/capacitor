@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/components/ion-segment';
+export * from '../../../packages/native-ui-core/dist/native/components/ion-segment.js';

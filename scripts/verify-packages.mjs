@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import ts from 'typescript';
+import { buildSync } from 'esbuild';
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, rmSync, existsSync, mkdirSync, symlinkSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,6 +30,18 @@ try {
     symlinkSync(packageRoot, dependencyPath, 'dir');
     symlinkSync(join(dir, 'node_modules'), join(packageRoot, 'node_modules'), 'dir');
     const files = new Set(archive.files.map((file) => file.path));
+
+    // Theme E2E fixtures also bundle the distributed TypeScript source directly.
+    // Resolve it from the archive without access to the private workspace package.
+    buildSync({
+      entryPoints: [join(packageRoot, 'src/index.ts'), join(packageRoot, 'src/native/runtime.ts')],
+      bundle: true,
+      write: false,
+      outdir: join(dir, 'source-bundle'),
+      format: 'esm',
+      platform: 'browser',
+      external: [...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})],
+    });
 
     // Locally installed dependencies must not hide undeclared runtime imports.
     const dependencies = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})]);

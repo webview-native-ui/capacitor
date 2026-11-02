@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native/shared/covered-snapshot';
+export * from '../../../packages/native-ui-core/dist/native/shared/covered-snapshot.js';

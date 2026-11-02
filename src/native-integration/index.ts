@@ -1,1 +1,1 @@
-export * from '@webview-native-ui/core/native-integration/index';
+export * from '../../packages/native-ui-core/dist/native-integration/index.js';
