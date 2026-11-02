@@ -1,1 +1,1 @@
-export { readScrollPlacement } from '@webview-native-ui/engine';
+export * from '@webview-native-ui/core/native/shared/scroll-placement';

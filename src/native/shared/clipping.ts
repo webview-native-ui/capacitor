@@ -1,1 +1,1 @@
-export { projectionAncestors, fitsClip } from '@webview-native-ui/engine';
+export * from '@webview-native-ui/core/native/shared/clipping';
