@@ -6,5 +6,5 @@ export default defineConfig({
       '@rdlabo/capacitor-native-ui/integration': new URL('./src/native-integration/index.ts', import.meta.url).pathname,
     },
   },
-  test: { environment: 'jsdom', include: ['tests/**/*.spec.ts'], isolate: true, setupFiles: ['tests/test-setup.ts'] },
+  test: { environment: 'jsdom', include: ['tests/**/*.spec.ts'], isolate: true, setupFiles: ['../../tests/test-setup.ts'] },
 });
