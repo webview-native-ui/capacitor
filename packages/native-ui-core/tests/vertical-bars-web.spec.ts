@@ -7,6 +7,7 @@ import { createVerticalBarsWebProjection } from '../src/native/vertical-bars-web
 import { getProjectionState } from '../src/native/shared/covered-source';
 const projectionState = getProjectionState(document);
 const { sourcesChangedEvent } = projectionState;
+import { registerNativeSearch } from '../src/native-integration';
 import { setVerticalBarsPlacement } from '../src/native/shared/dom';
 
 let owners: Set<HTMLElement>, visibleOwners: Set<HTMLElement>, preparedOwners: Set<HTMLElement>, nativeOwners: Set<HTMLElement>;
@@ -50,6 +51,97 @@ test('disabling Ionic discovery leaves an otherwise eligible verticalBars back b
   expect(document.querySelector('.ios-theme-vertical-bars-back-button-projection')).toBeNull();
 
   await handle.destroy();
+});
+
+test.each([
+  ['back', '<ion-back-button></ion-back-button>'],
+  ['button', '<ion-button data-vertical-bars="true">Save</ion-button>'],
+  ['menu', '<ion-menu-button></ion-menu-button>'],
+  ['search', '<ion-fab-button>Search</ion-fab-button>'],
+  ['group', '<ion-buttons><ion-button>Save</ion-button><ion-button>Done</ion-button></ion-buttons>'],
+])('native-owned nested %s is not recreated on repeated rail updates', async (kind, markup) => {
+  document.body.innerHTML = `<ion-app class="ios-theme-vertical-bars"><main class="ion-page"><ion-header><ion-toolbar>${markup}</ion-toolbar></ion-header></main></ion-app>`;
+  const source = document.querySelector<HTMLElement>('ion-toolbar > *')!;
+  for (const element of [source, ...source.querySelectorAll<HTMLElement>('ion-button')]) {
+    element.style.visibility = 'visible';
+    element.getBoundingClientRect = () => DOMRect.fromRect({ width: 44, height: 44 });
+    setVerticalBarsPlacement(element, true);
+  }
+  const shell = source.closest<HTMLElement>('.ion-page')!;
+  const tab = document.createElement('main');
+  tab.className = 'ion-page';
+  const tabs = document.createElement('ion-tabs');
+  const outlet = document.createElement('ion-router-outlet');
+  tab.append(source.parentElement!.parentElement!);
+  outlet.append(tab);
+  tabs.append(outlet);
+  shell.append(tabs);
+  if (kind === 'search') {
+    const tabBar = document.createElement('ion-tab-bar');
+    const footer = document.createElement('ion-footer');
+    shell.append(tabBar, footer);
+    for (const element of [tabBar, footer]) {
+      element.style.visibility = 'visible';
+      element.getBoundingClientRect = () => DOMRect.fromRect({ width: 44, height: 44 });
+    }
+    registerNativeSearch(tabBar, source, footer);
+  }
+  // The outer shell receives the push lifecycle, not the nested tab page.
+  const handle = createVerticalBarsWebProjection(document, {});
+  try {
+    shell.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true }));
+    await nextFrame();
+    expect(document.querySelectorAll('ion-app > .ion-cloned-element')).toHaveLength(1);
+    nativeOwners.add(source);
+    source.setAttribute('data-native-ui-projected', '');
+    const additions: Node[] = [];
+    const observer = new MutationObserver((records) => {
+      additions.push(...records.flatMap((record) => Array.from(record.addedNodes)));
+    });
+    observer.observe(document.querySelector('ion-app')!, { childList: true });
+    try {
+      for (let n = 0; n < 3; n++) {
+        window.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: true } }));
+        window.dispatchEvent(new Event('nativeUIRefresh'));
+        await nextFrame();
+      }
+      expect(additions.filter((node) => node instanceof Element && node.matches('.ion-cloned-element'))).toHaveLength(0);
+      expect(document.querySelector('ion-app > .ion-cloned-element')).toBeNull();
+      // Releasing native ownership must still restore a single functional Web target.
+      nativeOwners.delete(source);
+      source.removeAttribute('data-native-ui-projected');
+      window.dispatchEvent(new Event('nativeUIRefresh'));
+      await nextFrame();
+      expect(document.querySelectorAll('ion-app > .ion-cloned-element')).toHaveLength(1);
+    } finally {
+      observer.disconnect();
+    }
+  } finally {
+    await handle.destroy();
+  }
+});
+
+test('a mixed toolbar keeps only the Web-owned action after partial native acceptance', async () => {
+  document.body.innerHTML =
+    '<ion-app class="ios-theme-vertical-bars"><main class="ion-page"><ion-header><ion-toolbar><ion-buttons><ion-button>Save</ion-button><ion-button>Done</ion-button></ion-buttons></ion-toolbar></ion-header></main></ion-app>';
+  const group = document.querySelector<HTMLElement>('ion-buttons')!;
+  const [save, done] = [...group.querySelectorAll<HTMLElement>('ion-button')];
+  for (const element of [group, save, done]) {
+    element.style.visibility = 'visible';
+    element.getBoundingClientRect = () => DOMRect.fromRect({ width: 44, height: 44 });
+    setVerticalBarsPlacement(element, true);
+  }
+  nativeOwners.add(save);
+  const handle = createVerticalBarsWebProjection(document, {});
+  try {
+    await nextFrame();
+    const target = document.querySelector('ion-app > .ion-cloned-element')!;
+    expect(target.textContent).toBe('Done');
+    expect(projectionState.getTarget(save)).toBeUndefined();
+    expect(projectionState.getTarget(done)).toBe(target);
+  } finally {
+    await handle.destroy();
+  }
 });
 
 test('a back button inside an ion-buttons group is projected only through the back slot', async () => {
@@ -155,6 +247,7 @@ test('a single-action group and its action share the same snapshot projection ta
 test('a covered back-only rail survives native reacquisition while dragging a sheet', async () => {
   mountEligibleBackButton();
   const source = document.querySelector<HTMLElement>('ion-back-button')!;
+  nativeOwners.add(source);
   owners.add(source);
   const stop = observeVerticalBarsModals(document);
   const handle = createVerticalBarsWebProjection(document, {}, () => false);

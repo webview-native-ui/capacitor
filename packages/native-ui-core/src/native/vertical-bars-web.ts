@@ -103,6 +103,12 @@ export const createVerticalBarsWebProjection = (
     projectionState.isVisible(element as HTMLElement) ||
     isPrepared(element) ||
     (!!topModal(doc) && surfaceOf(element) !== topModal(doc));
+  // Native ownership is per source, while enabled() selects the whole Web rail.
+  // Only a covered/image target may coexist with an accepted native source.
+  const needsWebTarget = (element: HTMLElement) => {
+    const group = element.closest<HTMLElement>('ion-buttons');
+    return (!projectionState.nativeOwns(element) && (!group || !projectionState.nativeOwns(group))) || isCovered(element);
+  };
   const projectedSources = () =>
     [
       ...Array.from(doc.querySelectorAll<HTMLElement>('[data-native-ui-vertical-bars], [data-native-ui-vertical-bars-member]')),
@@ -128,6 +134,7 @@ export const createVerticalBarsWebProjection = (
     doc,
     (element) =>
       options.ionic?.auto !== false &&
+      needsWebTarget(element) &&
       controlSelected(element, options, 'tabs', true) &&
       !!verticalBarsRoot()?.contains(element) &&
       (!options.root || options.root.contains(element)) &&
@@ -142,6 +149,7 @@ export const createVerticalBarsWebProjection = (
     },
   );
   const inEligibleToolbar = (element: HTMLElement) =>
+    needsWebTarget(element) &&
     !!verticalBarsRoot()?.contains(element) &&
     (!options.root || options.root.contains(element)) &&
     !element.closest('[data-native-ui-placement="element"]') &&
@@ -150,6 +158,7 @@ export const createVerticalBarsWebProjection = (
     !isExcluded(element, verticalBarsEnteringPage(element)) &&
     (!verticalBarsPages.isDeparted(element) || projectionState.isVisible(element));
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
+    needsWebTarget(element) &&
     !!verticalBarsRoot()?.contains(element) &&
     (!options.root || options.root.contains(element)) &&
     !element.closest('[data-native-ui-placement="element"]') &&
@@ -168,7 +177,9 @@ export const createVerticalBarsWebProjection = (
   const findToolbarGroups = () => {
     const candidates = Array.from(doc.querySelectorAll<HTMLIonButtonsElement>(`ion-buttons:not(.${toolbarProjectionClass})`)).flatMap(
       (group): ToolbarSource[] => {
-        const actions = verticalBarsToolbarActions(group).filter((action) => unprojected(projectedSources(), () => isRendered(action)));
+        const actions = verticalBarsToolbarActions(group).filter(
+          (action) => needsWebTarget(action) && unprojected(projectedSources(), () => isRendered(action)),
+        );
         if (!actions.length) return [];
         if (!isVerticalBarsToolbarGroup(group)) return actions.filter(inEligibleToolbar).map((action) => ({ group, actions: [action] }));
         return inEligibleToolbar(group) && unprojected(projectedSources(), () => isRendered(group)) ? [{ group, actions }] : [];
