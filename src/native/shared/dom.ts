@@ -107,7 +107,7 @@ const verticalBarsTags = new Set(['ion-button', 'ion-back-button', 'ion-buttons'
 export const isVerticalBarsSource = (element: HTMLElement): boolean =>
   !element.closest('[data-native-ui-placement="element"]') &&
   (element.matches(
-    '[data-native-ui-placement="rail"][data-native-ui="button"], [data-native-ui-placement="rail"][data-native-ui="back-button"], [data-native-ui-placement="rail"][data-native-ui="button-submit"]',
+    '[data-native-ui-placement="rail"][data-native-ui="button"], [data-native-ui-placement="rail"][data-native-ui="back-button"], [data-native-ui-placement="rail"][data-native-ui="submit-button"]',
   ) ||
     (verticalBarsTags.has(element.localName) &&
       (element.matches('ion-tab-bar') || verticalBarsOwned(element)) &&

@@ -12,7 +12,7 @@ export const read = (element: HTMLElement, id: Identify, options: VerticalContro
   if (verticalBars && element.parentElement && isVerticalBarsToolbarGroup(element.parentElement)) return;
   const fill = button.fill ?? 'default';
   const group = element.parentElement?.matches('ion-buttons') ? element.parentElement : undefined;
-  const submit = element.getAttribute('data-native-ui') === 'button-submit';
+  const submit = element.getAttribute('data-native-ui') === 'submit-button';
   if (!verticalBars && !submit && (!horizontalSelected(element, options) || (group && horizontalToolbarGroup(group, options)))) return;
   if (
     !inFixedToolbar(element) ||
