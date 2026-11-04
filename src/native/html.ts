@@ -5,7 +5,7 @@ import { appendItem, createCandidate, type Candidate, type Identify } from './sh
 import { marker, unprojected, visible } from './shared/dom.js';
 
 /** Standard HTML sources use standard native renderers, not app-local Swift extensions. */
-export const htmlSelector = '[data-native-ui="button"], [data-native-ui="back-button"], [data-native-ui="submit-button"]';
+export const htmlSelector = '[data-native-ui="button"], [data-native-ui="back-button"], [data-native-ui="button-submit"]';
 export const htmlRailSource = (element: Element) =>
   element.matches(htmlSelector) && element.getAttribute('data-native-ui-placement') === 'rail';
 
@@ -22,7 +22,7 @@ export const readHTMLControl = (element: HTMLElement, id: Identify, options: Nat
   if (!htmlRailSource(element) && !fitsClip(element)) return;
   if (htmlRailSource(element) && options.verticalBars?.enabled === false) return;
   const kind = element.getAttribute('data-native-ui') === 'back-button' ? 'back-button' : 'button';
-  const submit = element.getAttribute('data-native-ui') === 'submit-button';
+  const submit = element.getAttribute('data-native-ui') === 'button-submit';
   const candidate = createCandidate(element, kind, id, options);
   const item = appendItem(candidate, element, id);
   if (!item) return;
