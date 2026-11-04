@@ -442,14 +442,9 @@ export const createVerticalBarsWebProjection = (
         attributeFilter: observingVerticalBars ? undefined : ['class'],
       });
     }
-    if (
-      stopped ||
-      suspended ||
-      options.verticalBars?.enabled === false ||
-      !currentRoot ||
-      (!enabled() && !topModal(doc) && !projectionState.owners.length && !projectionState.preparedOwners.length && !hasNativeSources())
-    )
-      return restore();
+    // Forced cleanup (suspend/stop/disable) still applies mid-epoch; normal
+    // ownership release below is what the suppression must hold.
+    if (stopped || suspended || options.verticalBars?.enabled === false || !currentRoot) return restore();
     if (suppressed()) {
       // The navigation epoch owns the rail; the Web fallback neither acquires
       // nor releases ownership mid-epoch, it only keeps existing clones in sync.
@@ -457,6 +452,8 @@ export const createVerticalBarsWebProjection = (
       reveal();
       return;
     }
+    if (!enabled() && !topModal(doc) && !projectionState.owners.length && !projectionState.preparedOwners.length && !hasNativeSources())
+      return restore();
     const surfaces = new Set(
       Array.from(doc.querySelectorAll<HTMLIonBackButtonElement>(`ion-back-button:not(.${backProjectionClass})`)).map(surfaceOf),
     );
@@ -575,6 +572,8 @@ export const createVerticalBarsWebProjection = (
   });
   listeners.signal.addEventListener('abort', stopOverlays, { once: true });
   win.addEventListener(
+    // Native-initiated acquires stay allowed even mid-epoch: suppression blocks
+    // Web-initiated ownership changes, not the authorized transfer to native.
     'nativeUIVerticalBarsAcquire',
     (event) => {
       const instant = (event as CustomEvent<{ instant: boolean }>).detail?.instant ?? true;

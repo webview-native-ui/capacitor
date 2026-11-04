@@ -116,7 +116,7 @@ export const createRuntime = async (
   const verticalBarsMembers = new Set<HTMLElement>();
   const suspended = new Set<HTMLElement[]>();
   const navigation = createHorizontalNavigation();
-  projectionState.setTransitionActive(() => !!navigation.current);
+  const unregisterTransitionActive = projectionState.setTransitionActive(() => !!navigation.current);
   const verticalNavigation = createVerticalNavigation();
   let verticalGesture: { pending: boolean; scopes: HTMLElement[]; sources: Set<HTMLElement> } | undefined;
   let acknowledged: Candidate[] = [];
@@ -1408,6 +1408,7 @@ export const createRuntime = async (
         await projectionSurfaces.destroy();
         restoreAll();
         unregisterNativeOwner();
+        unregisterTransitionActive();
         if (!doc.hidden) await painted();
         try {
           await bounded(plugin.clear({ revision: ++revision }));

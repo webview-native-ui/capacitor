@@ -6,6 +6,7 @@ import { getProjectionState } from '../src/native/shared/covered-source';
 import type { NativeUIPlugin } from '../src/native/definitions';
 import { createRuntime } from '../src/native/runtime';
 import { suspendNativeUI } from '../src/native-integration';
+import { setVerticalBarsPlacement } from '../src/native/shared/dom';
 
 const projectionState = getProjectionState(document);
 
@@ -120,5 +121,45 @@ test('the web back clone is not re-created or painted while native owns the rail
     await web.destroy();
     await native.destroy();
     prehide.stop();
+  }
+});
+
+// The suppression must hold existing Web ownership mid-epoch, not just block
+// new clones: a native sources gap must not strip an existing projection.
+test('suppression keeps an existing projection through the epoch', async () => {
+  document.body.innerHTML = `<ion-app class="ios-theme-vertical-bars">
+    <main class="ion-page"><ion-header><ion-toolbar><ion-buttons slot="start"><ion-back-button id="back" data-vertical-bars="true"></ion-back-button></ion-buttons></ion-toolbar></ion-header></main>
+  </ion-app>`;
+  document.querySelectorAll<HTMLElement>('*').forEach((element) => {
+    Object.assign(element.style, { visibility: 'visible', opacity: '1' });
+    size(element, 10);
+  });
+  const back = document.querySelector<HTMLIonBackButtonElement>('#back')!;
+  back.attachShadow({ mode: 'open' });
+  setVerticalBarsPlacement(back, true);
+  let enabledFlag = true;
+  let suppressedFlag = false;
+  const web = createVerticalBarsWebProjection(
+    document,
+    { controls: 'verticalOnly' },
+    () => enabledFlag,
+    () => suppressedFlag,
+  );
+  const cloneSelector = '.ios-theme-vertical-bars-back-button-projection';
+  try {
+    await vi.waitFor(() => expect(document.querySelector(cloneSelector)).toBeTruthy());
+    // Epoch opens while native owns nothing: enabled() flips false mid-epoch.
+    enabledFlag = false;
+    suppressedFlag = true;
+    back.setAttribute('data-churn', '1');
+    await nextFrame();
+    await nextFrame();
+    expect(document.querySelector(cloneSelector)).toBeTruthy();
+    // Epoch closes: normal ownership release resumes.
+    suppressedFlag = false;
+    back.setAttribute('data-churn', '2');
+    await vi.waitFor(() => expect(document.querySelector(cloneSelector)).toBeNull());
+  } finally {
+    await web.destroy();
   }
 });

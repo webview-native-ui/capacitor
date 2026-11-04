@@ -28,6 +28,9 @@ const createState = () => {
     // The native navigation epoch is owned by the runtime; other layers read it.
     setTransitionActive(read: () => boolean) {
       transitionActive = read;
+      return () => {
+        if (transitionActive === read) transitionActive = undefined;
+      };
     },
     isTransitionActive: () => transitionActive?.() ?? false,
     get owners(): readonly HTMLElement[] {
