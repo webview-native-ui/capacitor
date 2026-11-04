@@ -61,6 +61,7 @@ export const createVerticalBarsWebProjection = (
   doc: Document,
   options: NativeUIOptions,
   enabled: () => boolean = () => true,
+  suppressed: () => boolean = () => false,
 ): NativeUIRuntimeHandle => {
   const projectionState = getProjectionState(doc);
   const { isProjectionMutation, sourcesChangedEvent, targetsChangedEvent } = projectionState;
@@ -449,6 +450,13 @@ export const createVerticalBarsWebProjection = (
       (!enabled() && !topModal(doc) && !projectionState.owners.length && !projectionState.preparedOwners.length && !hasNativeSources())
     )
       return restore();
+    if (suppressed()) {
+      // The navigation epoch owns the rail; the Web fallback neither acquires
+      // nor releases ownership mid-epoch, it only keeps existing clones in sync.
+      syncExisting();
+      reveal();
+      return;
+    }
     const surfaces = new Set(
       Array.from(doc.querySelectorAll<HTMLIonBackButtonElement>(`ion-back-button:not(.${backProjectionClass})`)).map(surfaceOf),
     );
@@ -494,7 +502,14 @@ export const createVerticalBarsWebProjection = (
   const schedule = (): Promise<void> => {
     if (stopped) return Promise.resolve();
     // Release Web ownership before the native runtime can acknowledge its next frame.
-    if (!enabled() && !topModal(doc) && !projectionState.owners.length && !projectionState.preparedOwners.length && !hasNativeSources())
+    if (
+      !suppressed() &&
+      !enabled() &&
+      !topModal(doc) &&
+      !projectionState.owners.length &&
+      !projectionState.preparedOwners.length &&
+      !hasNativeSources()
+    )
       restore();
     const done = new Promise<void>((resolve) => waiters.push(resolve));
     if (!frame) frame = win.requestAnimationFrame(update);
