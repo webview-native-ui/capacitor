@@ -12,17 +12,19 @@ export const read = (element: HTMLElement, id: Identify, options: VerticalContro
   if (verticalBars && element.parentElement && isVerticalBarsToolbarGroup(element.parentElement)) return;
   const fill = button.fill ?? 'default';
   const group = element.parentElement?.matches('ion-buttons') ? element.parentElement : undefined;
-  if (!verticalBars && (!horizontalSelected(element, options) || (group && horizontalToolbarGroup(group, options)))) return;
+  const submit = element.getAttribute('data-native-ui') === 'button-submit';
+  if (!verticalBars && !submit && (!horizontalSelected(element, options) || (group && horizontalToolbarGroup(group, options)))) return;
   if (
     !inFixedToolbar(element) ||
     (verticalBars && !isVerticalBarsToolbarAction(element)) ||
-    (!verticalBars && fill !== 'default' && !(group && fill === 'clear')) ||
+    (!verticalBars && !submit && fill !== 'default' && !(group && fill === 'clear')) ||
     (!verticalBars && button.classList.contains('ion-color'))
   )
     return;
   const candidate = createCandidate(element, tag, id, options);
   const item = appendItem(candidate, element, id);
   if (!item) return;
-  if (!verticalBars && (fill === 'clear' || (group && button.fill === undefined))) item.buttonFill = 'clear';
+  if (submit) item.buttonStyle = 'prominent';
+  if (!verticalBars && !submit && (fill === 'clear' || (group && button.fill === undefined))) item.buttonFill = 'clear';
   return candidate;
 };
