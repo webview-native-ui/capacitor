@@ -201,11 +201,10 @@ import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
 const applyLayout = async () => setVerticalBarsLayout(await resolveVerticalBarsLayout(Foldable));
 
 await applyLayout();
-await Foldable.addListener('barPlacementChange', applyLayout);
-await Foldable.addListener('foldStateChange', applyLayout);
+await Foldable.addListener('layoutChange', applyLayout);
 ```
 
-Call this from the application's existing initial/device-change handler. Edge and inset can stay the same when the display changes, so `barPlacementChange` alone misses folds.
+Call this from the application's existing initial/device-change handler. `layoutChange` requires Foldable 8.5 or later. Edge and inset can stay the same when the display changes, so `barPlacementChange` alone misses folds.
 
 The SDK-free
 resolver returns only `edge`, `inset` and `toolbarTop`; it does not start Native UI,
