@@ -2,10 +2,10 @@ import { getProjectionState } from './shared/covered-source.js';
 import { fitsClip } from './shared/clipping.js';
 import type { NativeUIRuntimeOptions, NativeUIRuntimeHandle } from './definitions.js';
 import { appendItem, createCandidate, type Candidate, type Identify } from './shared/candidate.js';
-import { marker, unprojected, visible } from './shared/dom.js';
+import { explicitSourceSelector, marker, unprojected, visible } from './shared/dom.js';
 
 /** Standard HTML sources use standard native renderers, not app-local Swift extensions. */
-export const htmlSelector = '[data-native-ui="button"], [data-native-ui="back-button"], [data-native-ui="button-submit"]';
+export const htmlSelector = explicitSourceSelector;
 export const htmlRailSource = (element: Element) =>
   element.matches(htmlSelector) && element.getAttribute('data-native-ui-placement') === 'rail';
 
@@ -22,7 +22,6 @@ export const readHTMLControl = (element: HTMLElement, id: Identify, options: Nat
   if (!htmlRailSource(element) && !fitsClip(element)) return;
   if (htmlRailSource(element) && options.verticalBars?.enabled === false) return;
   const kind = element.getAttribute('data-native-ui') === 'back-button' ? 'back-button' : 'button';
-  const submit = element.getAttribute('data-native-ui') === 'button-submit';
   const candidate = createCandidate(element, kind, id, options);
   const item = appendItem(candidate, element, id);
   if (!item) return;
@@ -36,7 +35,6 @@ export const readHTMLControl = (element: HTMLElement, id: Identify, options: Nat
   item.accessibilityLabel = labelledBy || element.getAttribute('aria-label') || item.label;
   if (!item.accessibilityLabel) return;
   item.disabled ||= element.matches(':disabled, [disabled]') || !!element.closest('[aria-disabled="true"]');
-  if (submit) item.buttonStyle = 'prominent';
   if (htmlRailSource(element)) candidate.control.placement = 'vertical-bars';
   return candidate;
 };

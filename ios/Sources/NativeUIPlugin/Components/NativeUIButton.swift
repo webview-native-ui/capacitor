@@ -65,7 +65,7 @@ enum NativeUIButton {
         // Absorb that rounding without widening the projected button.
         button.titleLabel?.adjustsFontSizeToFitWidth = true
         button.titleLabel?.minimumScaleFactor = 0.99
-        if item.buttonStyle == .prominent { button.tintColor = rendering.color(item.color) }
+        button.tintColor = item.buttonStyle == .prominent ? rendering.color(item.color) : nil
         button.isEnabled = !item.disabled
         button.accessibilityLabel = item.accessibilityLabel
         button.accessibilityIdentifier = item.id
