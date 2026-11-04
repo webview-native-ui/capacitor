@@ -18,7 +18,7 @@ export const read = (element: HTMLElement, id: Identify, options: VerticalContro
     !inFixedToolbar(element) ||
     (verticalBars && !isVerticalBarsToolbarAction(element)) ||
     (!verticalBars && !submit && fill !== 'default' && !(group && fill === 'clear')) ||
-    (!verticalBars && button.classList.contains('ion-color'))
+    (!verticalBars && !submit && button.classList.contains('ion-color'))
   )
     return;
   const candidate = createCandidate(element, tag, id, options);
