@@ -10,7 +10,7 @@ This section covers the same upgrade in both the theme and Native UI guides; fol
 
 ### Update dependencies
 
-For theme-only applications, update the theme. No native startup or native rebuild is needed:
+For theme-only applications, update the theme:
 
 ```sh
 npm install @rdlabo/ionic-theme-ios27@latest
@@ -62,17 +62,6 @@ Solid Ionic submit buttons use prominent native glass automatically:
 The same appearance applies to existing `.button-submit` actions with solid fill. That class supplies styling, not form submission. Clear and outline fills do not gain submit emphasis. Existing explicit `data-native-ui="button-submit"` declarations remain supported.
 
 Native controls keep ownership during navigation, modal animations and image handoffs. An image shown in the WebView is still the native projection's presentation, not a return to the original Web button. Retest and remove transition-specific workarounds that force those controls back to Web. Keep intentional opt-outs and handling for unsupported controls or native failures; no additional animation flags or second runtime are needed.
-
-### Sync and rebuild
-
-If your application uses Capacitor, build the Web bundle and sync the existing native project after updating its plugins:
-
-```sh
-npm run build
-npx cap sync ios
-```
-
-Then rebuild and run the native app. SwiftPM resolves the plugin's Engine dependency. If you use CocoaPods with a direct npm Engine dependency, align it with the version declared by the installed plugin before syncing; follow [the CocoaPods setup](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/setup#4-build-sync-and-run). Engine implementation changes do not require changing ordinary application imports.
 
 Check both rail edges, rail disappearance, fold/rotation, card/sheet/full-screen presentation, and solid submit actions. Also check ordinary iPhone and browser fallback. For Cordova, use the [bundled integration](https://github.com/webview-native-ui/cordova-plugin); its pinned theme and native changes arrive through a Cordova plugin release rather than these Capacitor installation commands.
 
