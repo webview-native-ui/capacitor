@@ -12,12 +12,12 @@ import {
   removeEmptyModalRailSlot,
 } from './shared/vertical-bars-geometry.js';
 import { createVerticalBarsWebSearch, searchProjectionClass } from './vertical-bars-web-search.js';
-import { inVerticalBarsSurface, topModal, movingModal, modalPreparing, modalPresentation } from './shared/modal.js';
+import { inVerticalBarsSurface, topModal, modalPreparing, modalPresentation } from './shared/modal.js';
 import type { NativeUIRuntimeHandle, NativeUIOptions, NativeUIStatus } from './definitions.js';
 import { VERTICAL_BARS_TRANSITION_CANCELED } from '../native-integration/index.js';
 import {
   activateProjectedElement,
-  createVerticalBarsPageState,
+  createPageProjectionState,
   verticalBarsActionCandidate,
   verticalBarsBackCandidate,
   verticalBarsEnteringPage,
@@ -83,7 +83,7 @@ export const createVerticalBarsWebProjection = (
   let frame = 0;
   let updates = 0;
   let observingVerticalBars = false;
-  const verticalBarsPages = createVerticalBarsPageState();
+  const pageProjection = createPageProjectionState();
   let sourceObserver: MutationObserver | undefined;
   let waiters: (() => void)[] = [];
   const listeners = new AbortController();
@@ -105,9 +105,7 @@ export const createVerticalBarsWebProjection = (
   };
   // Covered toolbar controls keep a Web visual on their own surface, below the modal.
   const isCovered = (element: Element) =>
-    (!!movingModal(doc) && element.closest('ion-modal') === movingModal(doc)) ||
-    projectionState.owns(element as HTMLElement) ||
-    projectionState.isVisible(element as HTMLElement) ||
+    projectionState.hasImageHandoff(element as HTMLElement) ||
     isPrepared(element) ||
     (!!topModal(doc) && surfaceOf(element) !== topModal(doc));
   const projectedSources = () =>
@@ -142,7 +140,7 @@ export const createVerticalBarsWebProjection = (
       inVerticalBarsSurface(element) &&
       !isExcluded(element, verticalBarsEnteringPage(element)) &&
       !isNativeUIDisabled(element) &&
-      !verticalBarsPages.isDeparted(element) &&
+      !pageProjection.isDeparted(element) &&
       isRendered(element),
     () => {
       void schedule();
@@ -155,7 +153,7 @@ export const createVerticalBarsWebProjection = (
     (inVerticalBarsSurface(element) || isCovered(element)) &&
     verticalBarsActionCandidate(element) &&
     !isExcluded(element, verticalBarsEnteringPage(element)) &&
-    (!verticalBarsPages.isDeparted(element) || projectionState.owns(element) || projectionState.isVisible(element));
+    (!pageProjection.isDeparted(element) || projectionState.hasImageHandoff(element));
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
     !!verticalBarsRoot()?.contains(element) &&
     (!options.root || options.root.contains(element)) &&
@@ -163,7 +161,7 @@ export const createVerticalBarsWebProjection = (
     verticalBarsOwned(element) &&
     verticalBarsBackCandidate(element) &&
     !isExcluded(element, verticalBarsEnteringPage(element)) &&
-    (!verticalBarsPages.isDeparted(element) || projectionState.owns(element) || projectionState.isVisible(element)) &&
+    (!pageProjection.isDeparted(element) || projectionState.hasImageHandoff(element)) &&
     unprojected(projectedSources(), () => isRendered(element));
   const pageOrder = (element: Element) => Array.from(doc.querySelectorAll('.ion-page')).indexOf(element.closest('.ion-page')!);
   const findBack = (surface = topModal(doc) ?? verticalBarsRoot()) => {
@@ -251,11 +249,7 @@ export const createVerticalBarsWebProjection = (
     const group = original.closest<HTMLElement>('ion-buttons');
     target.toggleAttribute(
       'data-native-ui-proxy-prepared',
-      isPrepared(original) ||
-        nativeOwned(original) ||
-        !!(group && nativeOwned(group)) ||
-        projectionState.owns(original) ||
-        projectionState.isVisible(original),
+      isPrepared(original) || nativeOwned(original) || !!(group && nativeOwned(group)) || projectionState.hasImageHandoff(original),
     );
   };
   const syncBack = (target: HTMLIonBackButtonElement, original: HTMLIonBackButtonElement, surface: HTMLElement) => {
@@ -304,7 +298,7 @@ export const createVerticalBarsWebProjection = (
   const syncExisting = () => {
     for (const { source, projection, root: surface } of backProjections) {
       if (!surface.classList.contains(readyClass)) surface.classList.add(readyClass);
-      if (projectionState.isVisible(source)) {
+      if (projectionState.imageVisible(source)) {
         projection.inert = true;
         continue;
       }
@@ -316,7 +310,7 @@ export const createVerticalBarsWebProjection = (
     for (const { projection, source, actions, root: surface } of toolbarProjections) {
       if (!surface.classList.contains(readyClass)) surface.classList.add(readyClass);
       const topOffset = offsets.get(surface) ?? (findBack(surface) ? toolbarControlSize + toolbarControlGap : 0);
-      if (projectionState.isVisible(source) || actions.some((action) => projectionState.isVisible(action.source))) {
+      if (projectionState.imageVisible(source) || actions.some((action) => projectionState.imageVisible(action.source))) {
         projection.inert = true;
         offsets.set(surface, topOffset + toolbarGroupHeight(actions.length) + toolbarControlGap);
         continue;
@@ -580,8 +574,8 @@ export const createVerticalBarsWebProjection = (
     if (!(page instanceof HTMLElement) || !page.matches('.ion-page')) return;
     if (event.type === VERTICAL_BARS_TRANSITION_CANCELED) {
       const entering = (event as CustomEvent<{ entering?: HTMLElement }>).detail?.entering;
-      verticalBarsPages.cancel(entering, page);
-    } else verticalBarsPages.lifecycle(event);
+      pageProjection.cancel(entering, page);
+    } else pageProjection.lifecycle(event);
     if (verticalBarsRoot()) schedule();
   };
   for (const name of ['ionViewWillEnter', 'ionViewWillLeave', 'ionViewDidEnter', 'ionViewDidLeave'])
