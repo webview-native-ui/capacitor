@@ -241,7 +241,15 @@ export const createVerticalBarsWebProjection = (
         target.setAttribute(attribute.name, attribute.value);
     target.classList.remove(prehiddenClass);
     // Establish ownership before insertion/layout: glass can sample even a single Web paint.
-    target.toggleAttribute('data-native-ui-proxy-prepared', isPrepared(original));
+    const group = original.closest<HTMLElement>('ion-buttons');
+    target.toggleAttribute(
+      'data-native-ui-proxy-prepared',
+      isPrepared(original) ||
+        nativeOwned(original) ||
+        !!(group && nativeOwned(group)) ||
+        projectionState.owns(original) ||
+        projectionState.isVisible(original),
+    );
   };
   const syncBack = (target: HTMLIonBackButtonElement, original: HTMLIonBackButtonElement, surface: HTMLElement) => {
     copyAttributes(target, original);
