@@ -22,8 +22,6 @@ export const verticalBarFrame = (element: Element): Frame | undefined => {
 };
 
 const modalRailSlot = 'native-ui-vertical-bars';
-const modalRailTop =
-  'calc(var(--ios-theme-vertical-bars-modal-toolbar-top) + var(--ios-theme-vertical-bars-modal-offset-top, 0px) + var(--ios-theme-vertical-bars-toolbar-offset, 0px))';
 
 /** Place inert native-image targets outside the transformed wrapper, keeping interactive fallback in its dialog. */
 export const placeModalRailTarget = (target: HTMLElement, surface: HTMLElement) => {
@@ -31,14 +29,8 @@ export const placeModalRailTarget = (target: HTMLElement, surface: HTMLElement) 
   if (
     !target.inert ||
     !surface.ownerDocument.defaultView!.getComputedStyle(surface).getPropertyValue('--ios-theme-vertical-bars-modal-toolbar-top').trim()
-  ) {
-    if (target.slot === modalRailSlot) {
-      target.removeAttribute('slot');
-      if (target.style.top === modalRailTop) target.style.removeProperty('top');
-      if (target.style.position === 'fixed') target.style.removeProperty('position');
-    }
+  )
     return;
-  }
   if (!surface.shadowRoot.querySelector(`slot[name="${modalRailSlot}"]`)) {
     const slot = surface.ownerDocument.createElement('slot');
     slot.name = modalRailSlot;
@@ -49,7 +41,8 @@ export const placeModalRailTarget = (target: HTMLElement, surface: HTMLElement) 
   target.style.position = 'fixed';
   // The theme's local top already clamps at the reserved toolbar boundary.
   // Convert it to viewport coordinates without inheriting the wrapper transform.
-  target.style.top = modalRailTop;
+  target.style.top =
+    'calc(var(--ios-theme-vertical-bars-modal-toolbar-top) + var(--ios-theme-vertical-bars-modal-offset-top, 0px) + var(--ios-theme-vertical-bars-toolbar-offset, 0px))';
 };
 
 export const removeEmptyModalRailSlot = (surface: HTMLElement) => {

@@ -27,7 +27,7 @@ for (const border of [0, 1 / 3, 1]) {
 }
 
 for (const themed of [false, true]) {
-  test(`modal rail retains interactive dialog ownership with theme metrics=${themed}`, () => {
+  test(`modal rail only moves inert targets when theme metrics=${themed}`, () => {
     const modal = document.createElement('ion-modal');
     modal.attachShadow({ mode: 'open' }).innerHTML =
       '<div role="dialog" aria-modal="true" style="transform:translateY(100px)"><slot></slot></div>';
@@ -49,12 +49,8 @@ for (const themed of [false, true]) {
       expect(target.style.top).toBe('174px');
     }
 
-    // A native failure or manual release must restore the interactive dialog path.
-    target.inert = false;
-    placeModalRailTarget(target, modal);
+    target.remove();
     removeEmptyModalRailSlot(modal);
-    expect(target.assignedSlot?.parentElement).toBe(dialog);
-    expect(target.style.top).not.toContain('var(');
     expect(modal.shadowRoot!.querySelector('slot[data-native-ui-projection-node]')).toBeNull();
   });
 }
