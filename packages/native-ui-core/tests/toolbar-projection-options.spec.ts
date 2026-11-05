@@ -37,13 +37,25 @@ test.each([
   expect(candidates({ controls: { buttonGroup: buttons, button, backButton: 'horizontalOnly' } })).toEqual(expected);
 });
 
-test.each(['type', 'class'])('horizontal solid submit via %s projects individually with its fill tint', (marker) => {
+test.each([
+  ['type', false],
+  ['class', false],
+  ['type', true],
+  ['class', true],
+] as const)('horizontal solid submit via %s with Ionic color=%s projects with its fill tint', (marker, colored) => {
   mount();
   const button = document.querySelector<HTMLIonButtonElement>('#a')!;
+  const options = { controls: { button: true, buttonGroup: true } };
+  if (colored) {
+    button.setAttribute('color', 'primary');
+    button.classList.add('ion-color', 'ion-color-primary');
+    // Individually projected colored clear buttons remain on the Web.
+    expect(candidates({ controls: { button: true, buttonGroup: false } })).toEqual(['b', 'back']);
+  }
   button.fill = 'solid';
   button.classList.replace('button-clear', 'button-solid');
-  button.style.backgroundColor = 'rgb(150, 87, 0)';
-  const options = { controls: { button: true, buttonGroup: true } };
+  const native = button.attachShadow({ mode: 'open' });
+  native.innerHTML = '<span part="native" style="color: white; background-color: rgb(150, 87, 0)"></span>';
   expect(candidates(options)).toEqual(['b', 'back']);
 
   if (marker === 'type') button.setAttribute('type', 'submit');
