@@ -29,20 +29,20 @@ The resolver import below supplies layout values without enabling native project
 If your app maps `getBarPlacement()` directly into `setVerticalBarsLayout({ edge, inset })`, use the resolver to include the toolbar origin from reserved regions:
 
 ```diff
--import { Foldable, type BarPlacement } from '@erkamyaman/capacitor-foldable';
-+import { Foldable } from '@erkamyaman/capacitor-foldable';
-+import { resolveVerticalBarsLayout } from '@rdlabo/capacitor-native-ui/integration';
+- import { Foldable, type BarPlacement } from '@erkamyaman/capacitor-foldable';
++ import { Foldable } from '@erkamyaman/capacitor-foldable';
++ import { resolveVerticalBarsLayout } from '@rdlabo/capacitor-native-ui/integration';
  import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
 
--const applyPlacement = ({ verticalBarEdge, inset }: BarPlacement) =>
--  setVerticalBarsLayout({ edge: verticalBarEdge, inset });
--const listener = await Foldable.addListener('barPlacementChange', applyPlacement);
--applyPlacement(await Foldable.getBarPlacement());
-+const updateLayout = async () => {
-+  setVerticalBarsLayout(await resolveVerticalBarsLayout(Foldable));
-+};
-+const listener = await Foldable.addListener('layoutChange', () => void updateLayout());
-+await updateLayout();
+- const applyPlacement = ({ verticalBarEdge, inset }: BarPlacement) =>
+-   setVerticalBarsLayout({ edge: verticalBarEdge, inset });
+- const listener = await Foldable.addListener('barPlacementChange', applyPlacement);
+- applyPlacement(await Foldable.getBarPlacement());
++ const updateLayout = async () => {
++   setVerticalBarsLayout(await resolveVerticalBarsLayout(Foldable));
++ };
++ const listener = await Foldable.addListener('layoutChange', () => void updateLayout());
++ await updateLayout();
 ```
 
 Replace the old placement listener rather than adding a second update path. Keep `await listener.remove()` in the existing application teardown. If you already have a `layoutChange` handler, put the resolver call there. Keep existing `foldStateChange` / `applyFoldStateClasses` wiring for posture; the resolver only supplies rail geometry.
