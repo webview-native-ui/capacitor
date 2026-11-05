@@ -47,15 +47,16 @@ test.each([
   const button = document.querySelector<HTMLIonButtonElement>('#a')!;
   const options = { controls: { button: true, buttonGroup: true } };
   if (colored) {
-    button.setAttribute('color', 'primary');
-    button.classList.add('ion-color', 'ion-color-primary');
+    button.setAttribute('color', 'danger');
+    button.classList.add('ion-color', 'ion-color-danger');
     // Individually projected colored clear buttons remain on the Web.
     expect(candidates({ controls: { button: true, buttonGroup: false } })).toEqual(['b', 'back']);
   }
   button.fill = 'solid';
   button.classList.replace('button-clear', 'button-solid');
+  const tint = colored ? 'rgb(211, 47, 47)' : 'rgb(150, 87, 0)';
   const native = button.attachShadow({ mode: 'open' });
-  native.innerHTML = '<span part="native" style="color: white; background-color: rgb(150, 87, 0)"></span>';
+  native.innerHTML = `<span part="native" style="color: white; background-color: ${tint}"></span>`;
   expect(candidates(options)).toEqual(['b', 'back']);
 
   if (marker === 'type') button.setAttribute('type', 'submit');
@@ -63,7 +64,7 @@ test.each([
   expect(candidates(options)).toEqual(['a', 'b', 'back']);
   expect(readCandidate(button, (source) => source.id, options)?.control.items[0]).toMatchObject({
     buttonStyle: 'prominent',
-    color: 'rgb(150, 87, 0)',
+    color: tint,
   });
 });
 
