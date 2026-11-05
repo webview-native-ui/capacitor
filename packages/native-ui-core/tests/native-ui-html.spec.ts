@@ -1116,3 +1116,44 @@ test.each([false, true])('covered HTML suspension falls back without a prepared 
   expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
   if (!capability) expect(capture).not.toHaveBeenCalled();
 });
+
+test('a rejected native tab selection retains ownership while its native pixels retire', async () => {
+  const { source, options } = mount(
+    '<ion-tabs><main class="ion-page"><ion-tab-button role="button" data-native-ui="button">Library</ion-tab-button></main></ion-tabs>',
+  );
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  let activate!: (event: { id: string; revision: number; sequence: number }) => void;
+  let latest: NativeUISnapshot;
+  const plugin = {
+    addListener: async (name: string, callback: typeof activate) => {
+      if (name === 'activate') activate = callback;
+      return { remove: async () => {} };
+    },
+    update: async (snapshot: NativeUISnapshot) => {
+      latest = snapshot;
+      return { revision: snapshot.revision };
+    },
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  const runtime = await createRuntime(document, plugin, options);
+  handles.push(runtime);
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+  activate({ id: latest!.controls[0].items[0].id, revision: latest!.revision, sequence: 1 });
+  await vi.waitFor(() => expect(latest!.controls).toHaveLength(0));
+  expect(projectionState.nativeOwns(source)).toBe(true);
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  await vi.waitFor(() => expect(latest!.controls).toHaveLength(1));
+  expect(projectionState.nativeOwns(source)).toBe(true);
+});
