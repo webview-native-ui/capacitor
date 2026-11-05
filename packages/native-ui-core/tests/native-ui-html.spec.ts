@@ -654,6 +654,10 @@ test('native popover retention skips image handoff; a Web fallback reuses it wit
   release();
   await vi.waitFor(() => expect(capture.mock.calls.some(([args]) => args.action === 'cover')).toBe(true));
   expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+  await vi.waitFor(() => expect(latest!.controls).toHaveLength(0));
+  // Switching from live native views to their image must not release native ownership.
+  expect(projectionState.nativeOwns(source)).toBe(true);
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
   const beforeReturn = updates.length;
   popover.dispatchEvent(new CustomEvent('ionPopoverDidDismiss', { bubbles: true }));
   popover.remove();
@@ -678,6 +682,13 @@ test('native popover retention skips image handoff; a Web fallback reuses it wit
   alert.remove();
   await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false));
   expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  vi.spyOn(plugin, 'update').mockRejectedValue(new Error('native unavailable'));
+  source.textContent = 'Changed';
+  runtime.markForCheck();
+  await vi.waitFor(() => expect(runtime.getStatus().state).toBe('stopped'));
+  expect(projectionState.nativeOwns(source)).toBe(false);
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
 });
 
 test('older Native binaries keep modal rail projection and geometry updates during dragging', async () => {
