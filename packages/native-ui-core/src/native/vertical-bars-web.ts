@@ -5,7 +5,12 @@ import { getProjectionState } from './shared/covered-source.js';
 import { controlSelected } from './shared/control-options.js';
 import { createCrossfade, fadeMarker } from './shared/crossfade.js';
 import { tabWidthMeasuring } from './shared/tab-bar-width.js';
-import { alignVerticalBarClone, verticalBarFrame } from './shared/vertical-bars-geometry.js';
+import {
+  alignVerticalBarClone,
+  verticalBarFrame,
+  placeModalRailTarget,
+  removeEmptyModalRailSlot,
+} from './shared/vertical-bars-geometry.js';
 import { createVerticalBarsWebSearch, searchProjectionClass } from './vertical-bars-web-search.js';
 import { inVerticalBarsSurface, topModal, movingModal, modalPreparing, modalPresentation } from './shared/modal.js';
 import type { NativeUIRuntimeHandle, NativeUIOptions, NativeUIStatus } from './definitions.js';
@@ -192,6 +197,7 @@ export const createVerticalBarsWebProjection = (
   const nativeOwned = projectionState.nativeOwns;
   const restore = (retire?: (surface: HTMLElement) => void, retained = new Set<BackProjection | ToolbarProjection>()) => {
     search.restore(retire);
+    const surfaces = new Set([...backProjections, ...toolbarProjections].map(({ root }) => root));
     for (const current of backProjections) {
       if (retained.has(current)) continue;
       const { source, projection, root: surface, previousAriaHidden } = current;
@@ -222,6 +228,7 @@ export const createVerticalBarsWebProjection = (
       }
     }
     toolbarProjections = toolbarProjections.filter((current) => retained.has(current));
+    surfaces.forEach(removeEmptyModalRailSlot);
     sourceObserver?.disconnect();
     sourceObserver = undefined;
     root?.classList.remove(readyClass);
@@ -261,6 +268,7 @@ export const createVerticalBarsWebProjection = (
     target.mode = original.mode;
     target.text = '';
     alignVerticalBarClone(target, original, surface);
+    placeModalRailTarget(target, surface);
   };
   const actionContents = new WeakMap<HTMLElement, string>();
   const syncAction = (target: HTMLElement, original: HTMLElement) => {
@@ -342,6 +350,7 @@ export const createVerticalBarsWebProjection = (
           actions.forEach(({ source, projection: clone }) => alignVerticalBarClone(clone, source, projection));
         }
       }
+      placeModalRailTarget(projection, surface);
       offsets.set(surface, topOffset + toolbarGroupHeight(actions.length) + toolbarControlGap);
     }
   };
@@ -404,6 +413,7 @@ export const createVerticalBarsWebProjection = (
       });
       const surface = surfaceOf(group);
       projectionState.setTarget(group, projection);
+      placeModalRailTarget(projection, surface);
       surface.append(projection);
       toolbarProjections.push({ source: group, root: surface, projection, actions });
       topOffset += toolbarGroupHeight(actions.length) + toolbarControlGap;

@@ -21,6 +21,30 @@ export const verticalBarFrame = (element: Element): Frame | undefined => {
   return saved?.viewport === viewport(element) ? saved.frame : undefined;
 };
 
+const modalRailSlot = 'native-ui-vertical-bars';
+
+/** Keep rail targets inside their modal, outside Ionic's transformed content wrapper. */
+export const placeModalRailTarget = (target: HTMLElement, surface: HTMLElement) => {
+  if (!surface.matches('ion-modal') || !surface.shadowRoot) return;
+  if (!surface.shadowRoot.querySelector(`slot[name="${modalRailSlot}"]`)) {
+    const slot = surface.ownerDocument.createElement('slot');
+    slot.name = modalRailSlot;
+    slot.setAttribute('data-native-ui-projection-node', '');
+    surface.shadowRoot.append(slot);
+  }
+  target.slot = modalRailSlot;
+  target.style.position = 'fixed';
+  // The theme's local top already clamps at the reserved toolbar boundary.
+  // Convert it to viewport coordinates without inheriting the wrapper transform.
+  target.style.top =
+    'calc(var(--ios-theme-vertical-bars-modal-toolbar-top) + var(--ios-theme-vertical-bars-modal-offset-top, 0px) + var(--ios-theme-vertical-bars-toolbar-offset, 0px))';
+};
+
+export const removeEmptyModalRailSlot = (surface: HTMLElement) => {
+  const slot = surface.shadowRoot?.querySelector<HTMLSlotElement>(`slot[name="${modalRailSlot}"][data-native-ui-projection-node]`);
+  if (slot && !slot.assignedElements().length) slot.remove();
+};
+
 /** Convert the native viewport rectangle into the clone's positioning container. */
 export const alignVerticalBarClone = (clone: HTMLElement, source: Element, parent: HTMLElement) => {
   const frame = verticalBarFrame(source);

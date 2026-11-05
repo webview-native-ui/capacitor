@@ -285,6 +285,7 @@ test.each([false, true])('modal image targets survive dismissal before/after cov
     expect(outgoing.isConnected).toBe(true);
     expect(outgoing.inert).toBe(true);
     expect(outgoing.hasAttribute('aria-hidden')).toBe(false);
+    expect(outgoing.assignedSlot?.parentNode).toBe(modal.shadowRoot);
     preparedOwners.delete(close);
     owners.add(close);
     if (visible) visibleOwners.add(close);
@@ -355,6 +356,7 @@ test('native acquisition updates existing image targets without measuring or cre
 test.each([
   { surface: 'page', grouped: true },
   { surface: 'modal', grouped: true },
+  { surface: 'modal', grouped: false },
   { surface: 'page', grouped: false },
   { surface: 'page', grouped: true, partial: true },
 ])(
@@ -371,6 +373,8 @@ test.each([
     wrapper.setAttribute('part', 'content');
     Object.defineProperty(wrapper, 'offsetWidth', { value: innerWidth });
     wrapper.getAnimations = () => [];
+    wrapper.innerHTML = '<slot></slot>';
+    wrapper.style.transform = 'translateY(100px)';
     modal?.attachShadow({ mode: 'open' }).append(wrapper);
     const group = document.querySelector<HTMLElement>('ion-buttons')!;
     const actions = Array.from(group.querySelectorAll<HTMLElement>('ion-button'));
@@ -409,6 +413,15 @@ test.each([
       const target = projectionState.getTarget(group)!;
       expect(target?.isConnected).toBe(true);
       expect(target.hasAttribute('data-native-ui-proxy-prepared')).toBe(true);
+      if (modal) {
+        expect(target.closest('ion-modal')).toBe(modal);
+        expect(target.assignedSlot?.parentNode).toBe(modal.shadowRoot);
+        expect(wrapper.contains(target.assignedSlot)).toBe(false);
+        actions[0].setAttribute('aria-label', 'Updated close');
+        await nextFrame();
+        expect(projectionState.getTarget(group)).toBe(target);
+        expect(target.assignedSlot?.parentNode).toBe(modal.shadowRoot);
+      }
       for (const source of actions) expect(projectionState.getTarget(source)?.isConnected).toBe(true);
       expect(projectionState.getTarget(actions[0])).not.toBe(projectionState.getTarget(actions[1]));
       // Native may release a source before its prepared proxy is retired.
@@ -419,6 +432,7 @@ test.each([
       actions[0].removeAttribute('aria-hidden');
     } finally {
       await handle.destroy();
+      expect(modal?.shadowRoot?.querySelector('slot[data-native-ui-projection-node]')).toBeFalsy();
       expect(actions[0].hasAttribute('aria-hidden')).toBe(false);
       expect(actions[1].hasAttribute('data-native-ui-projected')).toBe(!grouped || !!partial);
       stop();
