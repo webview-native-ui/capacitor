@@ -999,8 +999,10 @@ test.each([2, 3])('%s modal surfaces keep independent images through nesting, dr
   const stopModals = observeVerticalBarsModals(document);
   const listeners = new Set<symbol>();
   let captures = 0;
+  let capturesReady = false;
+  const updates: NativeUISnapshot[] = [];
   const capture = vi.fn(async (args: { action: string; ids?: string[] }) =>
-    args.action === 'prepare'
+    args.action === 'prepare' && capturesReady
       ? {
           token: `surface-image-${++captures}`,
           parts: args.ids!.map((id) => ({ ids: [id], url: 'file:///image.png', x: 10, y: 10, width: 80, height: 44 })),
@@ -1019,6 +1021,7 @@ test.each([2, 3])('%s modal surfaces keep independent images through nesting, dr
       };
     },
     update: async (snapshot: NativeUISnapshot) => {
+      updates.push(snapshot);
       return { revision: snapshot.revision };
     },
     clear: async () => {},
@@ -1027,6 +1030,20 @@ test.each([2, 3])('%s modal surfaces keep independent images through nesting, dr
   handles.push(runtime);
   try {
     first.modal.dispatchEvent(new Event('ionModalDidPresent', { bubbles: true }));
+    await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+    // Motion without a ready image must retain Native ownership, never fall back to Web.
+    first.modal.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    first.move();
+    await vi.waitFor(() => expect(movingModal(document)).toBe(first.modal));
+    const count = updates.length;
+    source.textContent = 'Save while moving';
+    runtime.markForCheck();
+    await vi.waitFor(() => expect(updates.length).toBeGreaterThan(count));
+    expect(updates.at(-1)?.controls).toHaveLength(1);
+    expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+    expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+    capturesReady = true;
+    first.modal.dispatchEvent(new Event('pointerup', { bubbles: true }));
     await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-snapshot')).toBe(true));
     for (let index = 2; index <= depth; index++) {
       const child = document.createElement('ion-modal');
@@ -1054,8 +1071,18 @@ test.each([2, 3])('%s modal surfaces keep independent images through nesting, dr
     await vi.waitFor(() => expect(movingModal(document)).toBe(top.modal));
     await vi.waitFor(() => expect(top.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true));
     for (const covered of surfaces.slice(0, -1)) expect(covered.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+    // Returning to the pinned rail must restore Native before the gesture ends.
+    // The observer's boundary transitions are covered separately; keep raw motion active here.
+    capture.mockClear();
+    const modalState = await import('../src/native/shared/modal');
+    const following = vi.spyOn(modalState, 'followingModal').mockReturnValue(undefined);
+    window.dispatchEvent(new CustomEvent(modalState.modalMotionEvent, { detail: { modal: top.modal, moving: true, following: false } }));
+    await vi.waitFor(() => expect(capture.mock.calls.some(([args]) => args.action === 'restored')).toBe(true));
+    expect(movingModal(document)).toBe(top.modal);
+    expect(top.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+    expect(top.source.hasAttribute('data-native-ui-projected')).toBe(true);
+    following.mockRestore();
     top.modal.dispatchEvent(new Event('pointerup', { bubbles: true }));
-    await vi.waitFor(() => expect(top.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false));
     while (surfaces.length > 1) {
       const departing = surfaces.pop()!;
       departing.modal.dispatchEvent(new Event('ionModalWillDismiss', { bubbles: true }));
