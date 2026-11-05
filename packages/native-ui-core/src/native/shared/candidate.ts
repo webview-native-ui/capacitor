@@ -94,8 +94,7 @@ export const appendItem = (
   const defaultFill = child.closest('ion-buttons') ? 'clear' : candidate.buttonDefaultFill;
   const fill = !sourceFill || sourceFill === 'default' ? defaultFill : sourceFill;
   // Match the theme's solid submit emphasis, including buttons outside a form.
-  const submit =
-    child.matches('ion-button[type="submit"], ion-button.button-submit') && (fill === 'solid' || child.classList.contains('button-solid'));
+  const submit = child.matches('ion-button[type="submit"], ion-button.button-submit') && fill === 'solid';
   const prominent = submit || child.getAttribute('data-native-ui') === 'button-submit';
   const buttonStyle = getComputedStyle(native ?? child);
   const buttonFill =
