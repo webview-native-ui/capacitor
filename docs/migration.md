@@ -6,19 +6,25 @@ title: Migration
 
 ## Upgrading from 2.1.0
 
-Keep your existing `enableNativeUI()` call, control selection and imports. This update does not require the package separation or startup-option migration described for 1.2.1 below. Continue to own one runtime at the application root.
+This section covers the same upgrade in both the theme and Native UI guides; following either one is sufficient. Keep existing theme imports, stylesheets and animation setup. Native UI remains optional. If enabled, keep your existing `enableNativeUI()` call, control selection and application-root runtime. The older package-separation migration below does not need to be repeated.
 
 ### Update dependencies
 
-Update the theme and Native UI to their latest releases. They are versioned independently; use compatible versions according to the theme's peer dependency.
+For theme-only applications, update the theme. No native startup or native rebuild is needed:
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27@latest @rdlabo/capacitor-native-ui@latest @erkamyaman/capacitor-foldable@^8.5.0
+npm install @rdlabo/ionic-theme-ios27@latest
 ```
 
-Theme-only applications can update the theme without starting Native UI.
+For applications using device rail geometry or Native UI, update all three packages, including Foldable. They are versioned independently; use compatible versions according to the theme's peer dependency:
 
-### Replace placement-only rail updates
+```sh
+npm install @rdlabo/ionic-theme-ios27@latest @rdlabo/capacitor-native-ui@latest @erkamyaman/capacitor-foldable@latest
+```
+
+The resolver import below supplies layout values without enabling native projection. Theme-only applications without a device rail can skip the device geometry step.
+
+### Update device geometry
 
 If your app maps `getBarPlacement()` directly into `setVerticalBarsLayout({ edge, inset })`, use the resolver to include the toolbar origin from reserved regions:
 
@@ -41,11 +47,11 @@ If your app maps `getBarPlacement()` directly into `setVerticalBarsLayout({ edge
 
 Replace the old placement listener rather than adding a second update path. Keep `await listener.remove()` in the existing application teardown. If you already have a `layoutChange` handler, put the resolver call there. Keep existing `foldStateChange` / `applyFoldStateClasses` wiring for posture; the resolver only supplies rail geometry.
 
-Use the reported rail layout directly, without gating it on `isDeviceFoldable()`, a device name or viewport-size heuristics. Remove fixed toolbar-top workarounds used to imitate device geometry. Intentional application CSS overrides remain supported. Defaults stay in the theme's `setVerticalBarsLayout`, not the resolver. See [layout values and fallback behavior](#apply-device-layout-values).
+Use the reported rail layout directly, without gating it on `isDeviceFoldable()`, a device name or viewport-size heuristics. Remove fixed toolbar-top workarounds used to imitate device geometry. Intentional application CSS overrides remain supported. Defaults stay in the theme's `setVerticalBarsLayout`, not the resolver. The theme's outer-display default is 174px; reported device geometry can supply the inner-display origin, 124px. See [layout values and fallback behavior](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars-layout#apply-device-layout-values).
 
 ### Review modal overrides and submit appearance
 
-Remove a forced-full-width workaround for floating cards/sheets if it was added only to avoid the Duo rail. The theme now supplies measured floating bounds; the plugin also recognizes dialogs overlapping the rail. Keep explicit full-screen sizing when it is a product requirement. See the [theme migration guide](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/migration) for the sizing change.
+Remove a forced-full-width workaround for floating cards/sheets if it was added only to avoid the Duo rail. The theme now supplies measured floating bounds; the plugin also recognizes dialogs overlapping the rail. Keep explicit full-screen sizing when it is a product requirement. With `ios-theme-vertical-bars` or `ios-theme-fold-expanded` on `ion-app`, floating cards and sheets leave at least 8px at each side. Viewports at least 600px high cap their width at 653px; shorter viewports use the available width minus 16px. Top clearance follows the safe area, with an 8px minimum. Sheet breakpoints still control visible height. Application sizing via `--width`, `--max-width` and `--height` remains supported. Ordinary phone and tablet defaults are unchanged when neither layout class is active.
 
 Solid Ionic submit buttons use prominent native glass automatically:
 
@@ -59,7 +65,7 @@ Native controls keep ownership during navigation, modal animations and image han
 
 ### Sync and rebuild
 
-Build the Web bundle and sync the existing native project:
+If your application uses Capacitor, build the Web bundle and sync the existing native project after updating its plugins:
 
 ```sh
 npm run build
