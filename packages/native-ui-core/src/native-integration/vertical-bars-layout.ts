@@ -44,6 +44,9 @@ export const resolveVerticalBarsLayout = async (provider: LayoutProvider) => {
   }
   return {
     edge,
+    // Same bound as toolbarTop: the bottom of the rail-side top occlusion. The
+    // modal rail-frame clamp uses it as the rail's usable top edge.
+    railBottom: toolbarTop,
     inset: Number.isFinite(bars?.inset) && bars!.inset >= 0 ? bars!.inset : undefined,
     toolbarTop,
   };

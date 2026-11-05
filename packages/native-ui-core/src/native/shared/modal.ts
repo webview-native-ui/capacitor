@@ -280,7 +280,12 @@ export const modalVerticalBarFrame = (modal: Element): Frame | undefined => {
   const rect = modal.shadowRoot?.querySelector('[part~="content"]')?.getBoundingClientRect();
   const win = modal.ownerDocument.defaultView!;
   if (!rect) return;
-  const y = Math.max(0, rect.top);
+  // The rail's usable zone starts below the top occlusion (status corner); a frame
+  // reaching above that bound would try to place controls somewhere they cannot go.
+  const railBottom = Number.parseFloat(
+    win.getComputedStyle(modal.closest('ion-app') ?? win.document.body).getPropertyValue('--ios-theme-vertical-bars-rail-bottom'),
+  );
+  const y = Math.max(0, rect.top, Number.isFinite(railBottom) ? railBottom : 0);
   const height = Math.min(win.innerHeight, rect.bottom) - y;
   return height > 0 ? { x: 0, y, width: win.innerWidth, height } : undefined;
 };
