@@ -1,5 +1,10 @@
 import { afterEach, expect, test } from 'vitest';
-import { alignVerticalBarClone, rememberVerticalBarFrame } from '../src/native/shared/vertical-bars-geometry';
+import {
+  alignVerticalBarClone,
+  rememberVerticalBarFrame,
+  placeModalRailTarget,
+  removeEmptyModalRailSlot,
+} from '../src/native/shared/vertical-bars-geometry';
 
 afterEach(() => document.body.replaceChildren());
 
@@ -18,5 +23,38 @@ for (const border of [0, 1 / 3, 1]) {
     expect(170 + border + parseFloat(clone.style.top)).toBeCloseTo(222, 5);
     expect(clone.style.width).toBe('48px');
     expect(clone.style.height).toBe('48px');
+  });
+}
+
+for (const themed of [false, true]) {
+  test(`modal rail retains interactive dialog ownership with theme metrics=${themed}`, () => {
+    const modal = document.createElement('ion-modal');
+    modal.attachShadow({ mode: 'open' }).innerHTML =
+      '<div role="dialog" aria-modal="true" style="transform:translateY(100px)"><slot></slot></div>';
+    const dialog = modal.shadowRoot!.querySelector('[role="dialog"]')!;
+    const target = document.createElement('ion-button');
+    target.style.cssText = 'position:absolute;top:174px';
+    modal.append(target);
+    document.body.append(modal);
+    if (themed) modal.style.setProperty('--ios-theme-vertical-bars-modal-toolbar-top', '32px');
+
+    placeModalRailTarget(target, modal);
+    expect(target.assignedSlot?.parentElement).toBe(dialog);
+    expect(target.style.top).toBe('174px');
+    target.inert = true;
+    placeModalRailTarget(target, modal);
+    if (themed) expect(target.assignedSlot?.parentNode).toBe(modal.shadowRoot);
+    else {
+      expect(target.assignedSlot?.parentElement).toBe(dialog);
+      expect(target.style.top).toBe('174px');
+    }
+
+    // A native failure or manual release must restore the interactive dialog path.
+    target.inert = false;
+    placeModalRailTarget(target, modal);
+    removeEmptyModalRailSlot(modal);
+    expect(target.assignedSlot?.parentElement).toBe(dialog);
+    expect(target.style.top).not.toContain('var(');
+    expect(modal.shadowRoot!.querySelector('slot[data-native-ui-projection-node]')).toBeNull();
   });
 }

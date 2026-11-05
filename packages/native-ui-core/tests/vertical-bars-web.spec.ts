@@ -266,6 +266,7 @@ test.each([false, true])('modal image targets survive dismissal before/after cov
     Object.defineProperty(wrapper, 'offsetWidth', { value: window.innerWidth });
     wrapper.getAnimations = () => [];
     modal.attachShadow({ mode: 'open' }).append(wrapper);
+    modal.style.setProperty('--ios-theme-vertical-bars-modal-toolbar-top', '32px');
     app.append(modal);
     const close = modal.querySelector<HTMLElement>('ion-button')!;
     close.style.display = 'block';
@@ -376,6 +377,7 @@ test.each([
     wrapper.innerHTML = '<slot></slot>';
     wrapper.style.transform = 'translateY(100px)';
     modal?.attachShadow({ mode: 'open' }).append(wrapper);
+    modal?.style.setProperty('--ios-theme-vertical-bars-modal-toolbar-top', '32px');
     const group = document.querySelector<HTMLElement>('ion-buttons')!;
     const actions = Array.from(group.querySelectorAll<HTMLElement>('ion-button'));
     for (const element of [group, ...actions]) {

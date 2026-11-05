@@ -268,7 +268,6 @@ export const createVerticalBarsWebProjection = (
     target.mode = original.mode;
     target.text = '';
     alignVerticalBarClone(target, original, surface);
-    placeModalRailTarget(target, surface);
   };
   const actionContents = new WeakMap<HTMLElement, string>();
   const syncAction = (target: HTMLElement, original: HTMLElement) => {
@@ -311,6 +310,7 @@ export const createVerticalBarsWebProjection = (
       }
       syncBack(projection, source, surface);
       projection.inert = isCovered(source);
+      placeModalRailTarget(projection, surface);
     }
     const offsets = new Map<HTMLElement, number>();
     for (const { projection, source, actions, root: surface } of toolbarProjections) {
@@ -413,7 +413,6 @@ export const createVerticalBarsWebProjection = (
       });
       const surface = surfaceOf(group);
       projectionState.setTarget(group, projection);
-      placeModalRailTarget(projection, surface);
       surface.append(projection);
       toolbarProjections.push({ source: group, root: surface, projection, actions });
       topOffset += toolbarGroupHeight(actions.length) + toolbarControlGap;
