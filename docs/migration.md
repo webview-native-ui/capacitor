@@ -4,6 +4,73 @@ title: Migration
 
 # Migration
 
+## Upgrading from 2.1.0
+
+Keep your existing `enableNativeUI()` call, control selection and imports. This update does not require the package separation or startup-option migration described for 1.2.1 below. Continue to own one runtime at the application root.
+
+### Choose the release
+
+The theme and plugin are versioned independently. The first preview, `2.1.1-0`, includes device geometry and floating-modal sizing support. Automatic solid-submit emphasis and ownership retention require a plugin release containing [#19](https://github.com/webview-native-ui/capacitor-plugin/pull/19) and [#20](https://github.com/webview-native-ui/capacitor-plugin/pull/20); **the published plugin `2.1.1-0` predates those fixes**.
+
+For the published geometry/sizing preview:
+
+```sh
+npm install @rdlabo/ionic-theme-ios27@next @rdlabo/capacitor-native-ui@next @erkamyaman/capacitor-foldable@^8.5.0
+```
+
+Check the selected plugin release notes before relying on the submit and ownership fixes. Updating to the existing `next` version does not add later commits from `main`. Theme-only applications can update the theme without starting Native UI.
+
+### Replace placement-only rail updates
+
+If your app maps `getBarPlacement()` directly into `setVerticalBarsLayout({ edge, inset })`, use the resolver to include the toolbar origin from reserved regions:
+
+```ts
+import { Foldable } from '@erkamyaman/capacitor-foldable';
+import { resolveVerticalBarsLayout } from '@rdlabo/capacitor-native-ui/integration';
+import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
+
+const updateLayout = async () => {
+  setVerticalBarsLayout(await resolveVerticalBarsLayout(Foldable));
+};
+
+const listener = await Foldable.addListener('layoutChange', () => void updateLayout());
+await updateLayout();
+
+// In the existing application teardown:
+// await listener.remove();
+```
+
+Replace the old placement listener rather than adding a second update path. If you already have a `layoutChange` handler, put the resolver call there. Keep existing `foldStateChange` / `applyFoldStateClasses` wiring for posture; the resolver only supplies rail geometry.
+
+Use the reported rail layout directly, without gating it on `isDeviceFoldable()`, a device name or viewport-size heuristics. Remove fixed toolbar-top workarounds used to imitate device geometry. Intentional application CSS overrides remain supported. Defaults stay in the theme's `setVerticalBarsLayout`, not the resolver. See [layout values and fallback behavior](#apply-device-layout-values).
+
+### Review modal overrides and submit appearance
+
+Remove a forced-full-width workaround for floating cards/sheets if it was added only to avoid the Duo rail. The theme now supplies measured floating bounds; the plugin also recognizes dialogs overlapping the rail. Keep explicit full-screen sizing when it is a product requirement. See the [theme migration guide](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/migration) for the sizing change.
+
+Solid Ionic submit buttons use prominent native glass automatically:
+
+```html
+<ion-button type="submit" fill="solid">Save</ion-button>
+```
+
+The same appearance applies to existing `.button-submit` actions with solid fill. That class supplies styling, not form submission. Clear and outline fills do not gain submit emphasis. Existing explicit `data-native-ui="button-submit"` declarations remain supported.
+
+Native controls keep ownership during navigation, modal animations and image handoffs. An image shown in the WebView is still the native projection's presentation, not a return to the original Web button. Retest and remove transition-specific workarounds that force those controls back to Web. Keep intentional opt-outs and handling for unsupported controls or native failures; no additional animation flags or second runtime are needed.
+
+### Sync and rebuild
+
+Build the Web bundle and sync the existing native project:
+
+```sh
+npm run build
+npx cap sync ios
+```
+
+Then rebuild and run the native app. SwiftPM resolves the plugin's Engine dependency. If you use CocoaPods with a direct npm Engine dependency, align it with the version declared by the installed plugin before syncing; follow [the CocoaPods setup](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/setup#4-build-sync-and-run). Engine implementation changes do not require changing ordinary application imports.
+
+Check both rail edges, rail disappearance, fold/rotation, card/sheet/full-screen presentation, and solid submit actions. Also check ordinary iPhone and browser fallback. For Cordova, use the [bundled integration](https://github.com/webview-native-ui/cordova-plugin); its pinned theme and native changes arrive through a Cordova plugin release rather than these Capacitor installation commands.
+
 ## Upgrading from 1.2.1
 
 This guide is for applications using `@rdlabo/ionic-theme-ios27` **1.2.1**, including its Native UI Shell Preview and standalone Vertical Control Area.
