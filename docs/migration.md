@@ -8,39 +8,38 @@ title: Migration
 
 Keep your existing `enableNativeUI()` call, control selection and imports. This update does not require the package separation or startup-option migration described for 1.2.1 below. Continue to own one runtime at the application root.
 
-### Choose the release
+### Update dependencies
 
-The theme and plugin are versioned independently. The first preview, `2.1.1-0`, includes device geometry and floating-modal sizing support. Automatic solid-submit emphasis and ownership retention require a plugin release containing [#19](https://github.com/webview-native-ui/capacitor-plugin/pull/19) and [#20](https://github.com/webview-native-ui/capacitor-plugin/pull/20); **the published plugin `2.1.1-0` predates those fixes**.
-
-For the published geometry/sizing preview:
+Update the theme and Native UI to their latest releases. They are versioned independently; use compatible versions according to the theme's peer dependency.
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27@next @rdlabo/capacitor-native-ui@next @erkamyaman/capacitor-foldable@^8.5.0
+npm install @rdlabo/ionic-theme-ios27@latest @rdlabo/capacitor-native-ui@latest @erkamyaman/capacitor-foldable@^8.5.0
 ```
 
-Check the selected plugin release notes before relying on the submit and ownership fixes. Updating to the existing `next` version does not add later commits from `main`. Theme-only applications can update the theme without starting Native UI.
+Theme-only applications can update the theme without starting Native UI.
 
 ### Replace placement-only rail updates
 
 If your app maps `getBarPlacement()` directly into `setVerticalBarsLayout({ edge, inset })`, use the resolver to include the toolbar origin from reserved regions:
 
-```ts
-import { Foldable } from '@erkamyaman/capacitor-foldable';
-import { resolveVerticalBarsLayout } from '@rdlabo/capacitor-native-ui/integration';
-import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
+```diff
+-import { Foldable, type BarPlacement } from '@erkamyaman/capacitor-foldable';
++import { Foldable } from '@erkamyaman/capacitor-foldable';
++import { resolveVerticalBarsLayout } from '@rdlabo/capacitor-native-ui/integration';
+ import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
 
-const updateLayout = async () => {
-  setVerticalBarsLayout(await resolveVerticalBarsLayout(Foldable));
-};
-
-const listener = await Foldable.addListener('layoutChange', () => void updateLayout());
-await updateLayout();
-
-// In the existing application teardown:
-// await listener.remove();
+-const applyPlacement = ({ verticalBarEdge, inset }: BarPlacement) =>
+-  setVerticalBarsLayout({ edge: verticalBarEdge, inset });
+-const listener = await Foldable.addListener('barPlacementChange', applyPlacement);
+-applyPlacement(await Foldable.getBarPlacement());
++const updateLayout = async () => {
++  setVerticalBarsLayout(await resolveVerticalBarsLayout(Foldable));
++};
++const listener = await Foldable.addListener('layoutChange', () => void updateLayout());
++await updateLayout();
 ```
 
-Replace the old placement listener rather than adding a second update path. If you already have a `layoutChange` handler, put the resolver call there. Keep existing `foldStateChange` / `applyFoldStateClasses` wiring for posture; the resolver only supplies rail geometry.
+Replace the old placement listener rather than adding a second update path. Keep `await listener.remove()` in the existing application teardown. If you already have a `layoutChange` handler, put the resolver call there. Keep existing `foldStateChange` / `applyFoldStateClasses` wiring for posture; the resolver only supplies rail geometry.
 
 Use the reported rail layout directly, without gating it on `isDeviceFoldable()`, a device name or viewport-size heuristics. Remove fixed toolbar-top workarounds used to imitate device geometry. Intentional application CSS overrides remain supported. Defaults stay in the theme's `setVerticalBarsLayout`, not the resolver. See [layout values and fallback behavior](#apply-device-layout-values).
 
