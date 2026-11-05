@@ -6,7 +6,7 @@ import {
   type OverlayChange,
 } from '@webview-native-ui/engine';
 import { enableSupportIonicOverlays, coveredIonicSurface } from '@webview-native-ui/engine/ionic';
-import { movingModal, modalMotionEvent } from './shared/modal.js';
+import { movingModal, followingModal, modalMotionEvent } from './shared/modal.js';
 import { coverOverlayBackground, usesCoveredBackground } from './overlays/covered-overlay.js';
 import { getProjectionState } from './shared/covered-source.js';
 import { createCoveredSnapshots, type CoveredSnapshots } from './shared/covered-snapshot.js';
@@ -1546,7 +1546,7 @@ export const createRuntime = async (
                 topModal(doc) !== modal ||
                 modalPreparing(modal) ||
                 !!modalPresentation(modal) ||
-                movingModal(doc) === modal ||
+                followingModal(doc) === modal ||
                 !!navigation.current ||
                 stopped ||
                 overlayOpen(true, true),
@@ -1564,14 +1564,23 @@ export const createRuntime = async (
       });
       await Promise.all(modalStack(doc).map(prepareSurface));
       on(win, modalMotionEvent, (event) => {
-        const { modal, moving } = (event as CustomEvent<{ modal: HTMLIonModalElement; moving: boolean }>).detail;
+        const {
+          modal,
+          moving,
+          following = moving,
+        } = (event as CustomEvent<{ modal: HTMLIonModalElement; moving: boolean; following?: boolean }>).detail;
         const surface = projectionSurfaces.get(modal);
-        if (moving) surface?.begin();
-        else if (!modalDismissing(modal)) {
-          lastSnapshot = '';
+        if (moving && following) {
+          surface?.begin();
+          schedule();
+        } else if (!modalDismissing(modal)) {
+          const active = !!surface?.owners.length;
           surface?.end();
+          if (active) {
+            lastSnapshot = '';
+            schedule();
+          }
         }
-        schedule();
       });
     } catch {
       /* Optional capability: older/mismatched Web bundles keep the existing fallback. */

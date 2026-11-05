@@ -13,11 +13,13 @@ export const modalDismissing = (modal: Element) => dismissing.has(modal);
 interface ModalState {
   top?: HTMLIonModalElement;
   moving?: HTMLIonModalElement;
+  following?: HTMLIonModalElement;
   stack: HTMLIonModalElement[];
 }
 const states = new WeakMap<Document, ModalState>();
 export const modalStack = (doc: Document): readonly HTMLIonModalElement[] => states.get(doc)?.stack ?? [];
 export const movingModal = (doc: Document) => states.get(doc)?.moving;
+export const followingModal = (doc: Document) => states.get(doc)?.following;
 export const modalMotionEvent = 'nativeUIModalMotion';
 
 export const topModal = (doc: Document): HTMLIonModalElement | undefined => states.get(doc)?.top;
@@ -71,6 +73,32 @@ export const releaseSheetBackdropGesture = (modal: HTMLElement, role?: string): 
       continue;
     animation.cancel();
   }
+};
+
+/** Prove that every toolbar target is pinned; unknown/custom layouts retain image following. */
+const railPinned = (modal: HTMLElement, app: Element, appStyle: CSSStyleDeclaration): boolean => {
+  if (
+    Array.from(modal.querySelectorAll('[data-native-ui-vertical-bars]')).some(
+      (source) => !source.matches('ion-button, ion-buttons, ion-back-button, ion-menu-button'),
+    )
+  )
+    return false;
+  const positions = (surface: Element) =>
+    Array.from(
+      surface.querySelectorAll<HTMLElement>(
+        ':scope > .ios-theme-vertical-bars-toolbar-projection, :scope > .ios-theme-vertical-bars-back-button-projection',
+      ),
+    ).map((target) => {
+      const rect = target.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0
+        ? rect.y - (parseFloat(target.style.getPropertyValue('--ios-theme-vertical-bars-toolbar-offset')) || 0)
+        : NaN;
+    });
+  const configured = parseFloat(appStyle.getPropertyValue('--ios-theme-vertical-bars-toolbar-top'));
+  const boundary = Number.isFinite(configured) ? configured : Math.min(...positions(app));
+  const targets = positions(modal);
+  const scale = modal.ownerDocument.defaultView!.devicePixelRatio || 1;
+  return Number.isFinite(boundary) && targets.length > 0 && targets.every((y) => Math.round(y * scale) <= Math.round(boundary * scale));
 };
 
 export const observeVerticalBarsModals = (doc: Document, animate: () => boolean = () => false): (() => void) => {
@@ -154,10 +182,15 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
         changed = true;
       }
     }
-    if (state.moving !== moving) {
-      const previous = state.moving;
+    const pinned = !!top && !!app && !!appStyle && railPinned(top, app, appStyle);
+    const following = moving && !pinned ? moving : undefined;
+    const previousMoving = state.moving;
+    if (state.moving !== moving || state.following !== following) {
       state.moving = moving;
-      win.dispatchEvent(new CustomEvent(modalMotionEvent, { detail: { modal: moving ?? previous, moving: !!moving } }));
+      state.following = following;
+      win.dispatchEvent(
+        new CustomEvent(modalMotionEvent, { detail: { modal: moving ?? previousMoving, moving: !!moving, following: !!following } }),
+      );
       changed = true;
     }
     if (wanted.size !== observed.size || [...wanted].some((element) => !observed.has(element))) {
@@ -171,7 +204,8 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
         observed.add(element);
       }
     }
-    if (changed) win.dispatchEvent(new CustomEvent('nativeUIRefresh', { detail: { modalMotion: !!state.moving } }));
+    if (changed)
+      win.dispatchEvent(new CustomEvent('nativeUIRefresh', { detail: { modalMotion: !!state.moving || (pinned && !!previousMoving) } }));
     if (
       top &&
       (modalPreparing(top) ||

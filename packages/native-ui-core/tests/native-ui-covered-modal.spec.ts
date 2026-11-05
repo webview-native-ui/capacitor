@@ -1,4 +1,4 @@
-import { observeVerticalBarsModals, movingModal, modalMotionEvent } from '../src/native/shared/modal';
+import { observeVerticalBarsModals, movingModal, followingModal, modalMotionEvent } from '../src/native/shared/modal';
 import { afterEach, expect, test, vi } from 'vitest';
 import { coverOverlayBackground, usesCoveredBackground } from '../src/native/overlays/covered-overlay';
 import type { CoveredSnapshots } from '../src/native/shared/covered-snapshot';
@@ -86,6 +86,53 @@ test.each(['sheet', 'card'])('%s motion spans dragging and settling, without tre
   } finally {
     stop();
     window.removeEventListener(modalMotionEvent, listener);
+    vi.useRealTimers();
+  }
+});
+
+test.each([136, 220])('rail only follows below its boundary, including a crossing during one drag from %s', async (initial) => {
+  vi.useFakeTimers();
+  document.body.innerHTML =
+    '<ion-app class="ios-theme-vertical-bars" style="--ios-theme-vertical-bars-toolbar-top:174px"><ion-modal><ion-button class="ios-theme-vertical-bars-toolbar-projection"></ion-button></ion-modal></ion-app>';
+  const modal = document.querySelector('ion-modal')!;
+  const target = modal.querySelector('ion-button')!;
+  const wrapper = document.createElement('div');
+  wrapper.setAttribute('part', 'content');
+  Object.defineProperty(wrapper, 'offsetWidth', { value: innerWidth });
+  wrapper.getAnimations = () => [];
+  let y = initial;
+  let railY = initial > 150 ? 244 : 174;
+  wrapper.getBoundingClientRect = () => DOMRect.fromRect({ y, width: innerWidth, height: innerHeight });
+  target.getBoundingClientRect = () => DOMRect.fromRect({ y: railY, width: 48, height: 48 });
+  modal.attachShadow({ mode: 'open' }).append(wrapper);
+  const stop = observeVerticalBarsModals(document);
+  try {
+    modal.dispatchEvent(new CustomEvent('ionModalDidPresent', { bubbles: true }));
+    modal.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(20);
+    expect(followingModal(document)).toBeUndefined(); // A stationary touch needs no image.
+    y -= 10;
+    railY = initial > 150 ? 234 : 174;
+    await vi.advanceTimersByTimeAsync(20);
+    expect(movingModal(document)).toBe(modal);
+    expect(followingModal(document)).toBe(initial > 150 ? modal : undefined);
+    for (const [nextY, nextRailY, follows] of [
+      [100, 174, false],
+      [200, 224, true],
+      [80, 174, false],
+      [230, 254, true],
+    ] as const) {
+      y = nextY;
+      railY = nextRailY;
+      await vi.advanceTimersByTimeAsync(20);
+      expect(movingModal(document)).toBe(modal);
+      expect(followingModal(document)).toBe(follows ? modal : undefined);
+    }
+    modal.dispatchEvent(new Event('pointerup', { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(40);
+    expect(followingModal(document)).toBeUndefined();
+  } finally {
+    stop();
     vi.useRealTimers();
   }
 });
