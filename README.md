@@ -25,6 +25,8 @@ Native ownership follows the source and its projection context, independently of
 
 Blocking Web overlays can keep prepared images of native buttons, segments, FABs and tab bars beneath their backdrop. Images retain the captured native appearance and are prepared after native updates and coalesced visual changes. Platform capture can differ from live compositing, including Liquid Glass edge highlights; pixel-identical material reproduction is not guaranteed. Preparation pauses during touch; presentation uses the last completed image without waiting for capture or a bridge acknowledgement. A missing image does not release an accepted Native source to Web. Native popovers that retain their controls keep the native route. See [the handoff rules](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/appearance#temporary-images-beneath-web-overlays) for movement, restoration and exclusions. Rebuild the native app to enable this capability; older native binaries keep their existing route.
 
+Modal rail image clipping is **experimental**. It reduces captured background mismatch while a Modal moves below the reserved toolbar boundary, but does not fully reproduce live Liquid Glass backgrounds or edge highlights. See [Modal rail movement](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/appearance#modal-rail-movement) for its scope and limitations.
+
 ## Choose what to build
 
 | Goal                                                | Start here                                                                                                            |

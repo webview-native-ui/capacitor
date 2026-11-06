@@ -90,6 +90,8 @@ Image targets sit inside the Modal dialog so its own transform carries them. Nat
 
 ### Preserve the glass rim
 
+**Experimental:** Modal rail image clipping is a provisional approach to reducing captured background mismatch. Its rendering behavior may change as background capture and Liquid Glass fidelity improve.
+
 Below the boundary, the Web image targets use a rounded clip around their display frame with a **1 CSS pixel allowance** for the glass rim. This trims captured background padding and outside shadows while preserving the button's layout size and position. It applies to a whole `ion-buttons` image or to each individually projected `ion-button` image. For partial projection, only the image targets are clipped; sibling Web buttons retain their usual rendering.
 
 Clipping is limited to below-boundary Modal rail images. Ordinary Modal controls, page rails, and images at or above the boundary keep their existing presentation. Temporary Native entry and return copies render the full prepared crop at the destination rectangle. Capture fidelity can still differ from live Liquid Glass compositing; the allowance does not guarantee pixel-identical rendering on every device.
