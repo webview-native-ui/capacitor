@@ -252,13 +252,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self, let webView = self.environment.webView() else { call.reject("WebView unavailable"); return }
             if call.getString("action") == "prepare", let window = webView.window {
-                self.coveredSnapshots.observe(window, acceptsTouch: { [weak self] target in
-                    guard let self else { return false }
-                    // A Web drag does not change Native's pressed/glass state.
-                    // Keep every renderer-owned descendant, including custom controls.
-                    return self.controls.values.contains { target.isDescendant(of: $0) } ||
-                        self.verticalBars.map { target.isDescendant(of: $0.view) } == true
-                }) { [weak self] active in
+                self.coveredSnapshots.observe(window) { [weak self] active in
                     self?.notifyListeners("snapshotInteraction", data: ["active": active])
                 }
             }

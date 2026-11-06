@@ -67,3 +67,17 @@ for (const themed of [false, true]) {
     expect(modal.shadowRoot!.querySelector('slot[data-native-ui-projection-node]')).toBeNull();
   });
 }
+
+test('Modal image frame keeps measured Native dimensions and corner radius', () => {
+  const modal = document.createElement('ion-modal');
+  const source = document.createElement('ion-button');
+  const target = document.createElement('ion-button');
+  modal.append(source, target);
+  document.body.append(modal);
+  modal.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 100, width: 466, height: 578 });
+  rememberVerticalBarFrame(source, { x: 390, y: 220, width: 60, height: 40, cornerRadius: 7 });
+  alignVerticalBarClone(target, source, modal);
+  expect(target.style.width).toBe('60px');
+  expect(target.style.height).toBe('40px');
+  expect(target.style.getPropertyValue('--native-ui-modal-rail-image-radius')).toBe('7px');
+});

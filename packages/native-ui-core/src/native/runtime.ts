@@ -216,6 +216,12 @@ export const createRuntime = async (
     .ion-cloned-element:is([${verticalBarsMarker}], [${verticalBarsMemberMarker}]):not([${fadeMarker}]):not([data-native-ui-snapshot-visible]),
     .ion-cloned-element:is([data-native-ui-snapshot-source], [data-native-ui-proxy-prepared]):not([data-native-ui-snapshot-visible]) { opacity: 0 !important; content-visibility: hidden !important; }
     [${marker}], [${marker}] *, [${navigationMarker}], [${navigationMarker}] * { pointer-events: none !important; }
+    /* Clip snapshot padding only for the Modal rail below its pinned boundary. */
+    ion-modal.ios-theme-vertical-bars-modal > [slot="native-ui-vertical-bars"][data-native-ui-snapshot-visible],
+    ion-modal.ios-theme-vertical-bars-modal > [slot="native-ui-vertical-bars"] [data-native-ui-snapshot-visible] {
+      overflow: var(--native-ui-modal-rail-image-overflow, visible) !important;
+      border-radius: var(--native-ui-modal-rail-image-radius, 999px) !important;
+    }
     /* The theme's fixed Back clone must not reintroduce a Web button while
        navigation keeps its source under native ownership. */
     :is(ion-nav, ion-router-outlet):has(.ion-page:not(.ion-page-hidden) ion-back-button:is([${marker}], [${navigationMarker}]))

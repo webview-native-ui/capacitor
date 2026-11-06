@@ -1,6 +1,6 @@
 import type { Frame, NativeUIVerticalBarFrame } from '../definitions.js';
 
-const measurements = new WeakMap<Element, { frame: Frame; viewport: string }>();
+const measurements = new WeakMap<Element, { frame: NativeUIVerticalBarFrame; viewport: string }>();
 const viewport = (element: Element) => {
   const win = element.ownerDocument.defaultView!;
   const classes = element.closest('ion-app')?.classList;
@@ -12,11 +12,11 @@ export const validVerticalBarFrame = (frame: Frame) =>
 
 export const forgetVerticalBarFrame = (element: Element) => measurements.delete(element);
 
-export const rememberVerticalBarFrame = (element: Element, frame: Frame) => {
+export const rememberVerticalBarFrame = (element: Element, frame: NativeUIVerticalBarFrame) => {
   if (validVerticalBarFrame(frame)) measurements.set(element, { frame, viewport: viewport(element) });
 };
 
-export const verticalBarFrame = (element: Element): Frame | undefined => {
+export const verticalBarFrame = (element: Element): NativeUIVerticalBarFrame | undefined => {
   const saved = measurements.get(element);
   return saved?.viewport === viewport(element) ? saved.frame : undefined;
 };
@@ -84,6 +84,8 @@ export const alignVerticalBarClone = (clone: HTMLElement, source: Element, paren
     margin: '0',
     boxSizing: 'border-box',
   });
+  if (source.closest('ion-modal'))
+    clone.style.setProperty('--native-ui-modal-rail-image-radius', `${frame.cornerRadius ?? Math.min(frame.width, frame.height) / 2}px`);
 };
 
 export const alignVerticalTabBar = (

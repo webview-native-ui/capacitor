@@ -81,14 +81,14 @@ export const releaseSheetBackdropGesture = (modal: HTMLElement, role?: string): 
   }
 };
 
-/** Prove that every toolbar target is pinned; unknown/custom layouts retain image following. */
-const railPinned = (modal: HTMLElement, app: Element, appStyle: CSSStyleDeclaration): boolean => {
+/** Unknown/custom layouts retain image following without assuming a clipping boundary. */
+const railPosition = (modal: HTMLElement, app: Element, appStyle: CSSStyleDeclaration): 'pinned' | 'below' | 'unknown' => {
   if (
     Array.from(modal.querySelectorAll('[data-native-ui-vertical-bars]')).some(
-      (source) => !source.matches('ion-button, ion-buttons, ion-back-button, ion-menu-button'),
+      (source) => source.closest('ion-modal') === modal && !source.matches('ion-button, ion-buttons, ion-back-button, ion-menu-button'),
     )
   )
-    return false;
+    return 'unknown';
   const positions = (surface: Element) =>
     Array.from(
       surface.querySelectorAll<HTMLElement>(
@@ -104,7 +104,8 @@ const railPinned = (modal: HTMLElement, app: Element, appStyle: CSSStyleDeclarat
   const boundary = Number.isFinite(configured) ? configured : Math.min(...positions(app));
   const targets = positions(modal);
   const scale = modal.ownerDocument.defaultView!.devicePixelRatio || 1;
-  return Number.isFinite(boundary) && targets.length > 0 && targets.every((y) => Math.round(y * scale) <= Math.round(boundary * scale));
+  if (!Number.isFinite(boundary) || !targets.length || !targets.every(Number.isFinite)) return 'unknown';
+  return targets.every((y) => Math.round(y * scale) <= Math.round(boundary * scale)) ? 'pinned' : 'below';
 };
 
 export const observeVerticalBarsModals = (doc: Document, animate: () => boolean = () => false): (() => void) => {
@@ -188,7 +189,21 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
         changed = true;
       }
     }
-    const pinned = !!top && !!app && !!appStyle && railPinned(top, app, appStyle);
+    const topPosition = top && app && appStyle ? railPosition(top, app, appStyle) : 'unknown';
+    const pinned = topPosition === 'pinned';
+    for (const modal of modals) {
+      const position =
+        modal === top
+          ? topPosition
+          : app && appStyle && modal.classList.contains(modalRailClass)
+            ? railPosition(modal, app, appStyle)
+            : 'unknown';
+      const overflow = modal.classList.contains(modalRailClass) ? (position === 'below' ? 'hidden' : 'visible') : '';
+      if (modal.style.getPropertyValue('--native-ui-modal-rail-image-overflow') !== overflow) {
+        if (overflow) modal.style.setProperty('--native-ui-modal-rail-image-overflow', overflow);
+        else modal.style.removeProperty('--native-ui-modal-rail-image-overflow');
+      }
+    }
     // Non-interactive transitions use images regardless of the boundary. During
     // interaction, only dragging/snapping below the boundary needs image following.
     // This is a pixel request; Native ownership and image readiness are independent.
@@ -319,6 +334,7 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
     doc.querySelectorAll<HTMLElement>(`.${modalRailClass}`).forEach((modal) => {
       modal.classList.remove(modalRailClass);
       modal.style.removeProperty(toolbarTop);
+      modal.style.removeProperty('--native-ui-modal-rail-image-overflow');
     });
   };
 };
