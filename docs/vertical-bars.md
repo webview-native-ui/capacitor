@@ -339,8 +339,6 @@ Inside `ion-buttons`, explicitly set `fill="solid"` to project a background; `bu
 
 ## Modal movement
 
-Image clipping below the reserved toolbar boundary is **experimental**. It reduces captured background mismatch but does not guarantee the same background or edge highlights as live Liquid Glass.
-
 Modal rail controls keep Native source ownership during presentation, dragging, snapping and dismissal. At rest they use live Native controls. Movement below the reserved toolbar boundary uses images carried by the Modal dialog; movement at or above the boundary keeps the live Native controls pinned. Presentation and dismissal use prepared images for their transitions. These rules apply to grouped and individually projected buttons. See [Modal rail movement and glass-rim clipping](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/appearance#modal-rail-movement) for the presentation rules and clipping scope.
 
 ## Tab bar
