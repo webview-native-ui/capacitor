@@ -1354,3 +1354,44 @@ test('rail markers follow the acquired input through an outdated ACK and a fresh
     await destroyed;
   }
 });
+
+test('an authored hidden source releases after its image handoff ends and can reacquire', async () => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const { source, options } = mount();
+  const snapshots: NativeUISnapshot[] = [];
+  const plugin = {
+    addListener: async () => ({ remove: async () => {} }),
+    update: async (snapshot: NativeUISnapshot) => {
+      snapshots.push(snapshot);
+      return { revision: snapshot.revision };
+    },
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  const handle = await createRuntime(document, plugin, options);
+  handles.push(handle);
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+  owners.add(source);
+  source.style.display = 'none';
+  handle.markForCheck();
+  await vi.waitFor(() => expect(snapshots.at(-1)?.controls).toHaveLength(0));
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  owners.delete(source);
+  handle.markForCheck();
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(false));
+  source.style.removeProperty('display');
+  handle.markForCheck();
+  await vi.waitFor(() => expect(snapshots.at(-1)?.controls).toHaveLength(1));
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+});

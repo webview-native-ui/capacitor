@@ -50,7 +50,14 @@ import type {
   NativeUIPlugin,
   NativeUIStatus,
 } from './definitions.js';
-import { readCandidate, selector, shadowSelector, motionSelector, isVerticalBarsCandidate } from './components/index.js';
+import {
+  readCandidate,
+  selector,
+  shadowSelector,
+  motionSelector,
+  isVerticalBarsCandidate,
+  sourceConfigurationSupported,
+} from './components/index.js';
 import {
   activateProjectedElement,
   inFixedToolbar,
@@ -295,18 +302,24 @@ export const createRuntime = async (
     element.classList.toggle(rejectedClass, value);
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
-  type SourceRead = { kind: 'ready'; candidate: Candidate } | { kind: 'deferred' | 'suppressed' | 'unavailable' };
+  type SourceRead = { kind: 'ready'; candidate: Candidate } | { kind: 'deferred' | 'suppressed' | 'hidden' | 'unavailable' };
   const deferred: SourceRead = { kind: 'deferred' };
   const unavailable: SourceRead = { kind: 'unavailable' };
   const suppressed: SourceRead = { kind: 'suppressed' };
   const sourceReads = new Map<HTMLElement, SourceRead['kind']>();
   const nativeProjectionAllowed = (element: HTMLElement) => {
+    if (
+      !element.hasAttribute('data-native-ui') &&
+      !extensions.some((extension) => element.matches(extension.selector)) &&
+      !sourceConfigurationSupported(element)
+    )
+      return false;
     if (isNativeUIDisabled(element)) return false;
     if (element.closest('.ios-theme-disabled, .ios26-disabled') && isPermanentlyExcluded(element)) return false;
     if (
       !extensions.some((extension) => element.matches(extension.selector)) &&
-      isVerticalBarsSource(element) &&
-      (options.verticalBars?.enabled === false || !nativeVerticalBars())
+      (isVerticalBarsSource(element) || nativeOwners.get(element)?.input.control.placement === 'vertical-bars') &&
+      (options.verticalBars?.enabled === false || !nativeVerticalBars() || !modalUsesVerticalBars(element))
     )
       return false;
     return true;
@@ -327,7 +340,7 @@ export const createRuntime = async (
       element,
       isVerticalBarsSource(element) || !!options.nativeScroll || extension?.placement === 'tab-accessory',
     );
-    if (visibility === 'hidden') return suppressed;
+    if (visibility === 'hidden') return { kind: 'hidden' };
     if (visibility === 'pending') return deferred;
     if (visibility === 'unsupported') return unavailable;
     if (element.matches('ion-back-button') && element.closest('ion-app.ios-theme-vertical-bars') && !isVerticalBarsCandidate(element))
@@ -506,9 +519,9 @@ export const createRuntime = async (
     const page = element.closest<HTMLElement>('.ion-page');
     if (!manualSuspensions.size && page && (tabActivationPages.has(page) || (tabSwitchHandoff && pages.has(page)))) return;
     if (navigation.current && navigation.current.phase !== 'committing' && navigation.owns(element)) return;
-    // A readable source omitted from the selected set is no longer a Native candidate.
-    // Skipped, deferred and suppressed reads cannot establish that verdict.
-    return read === 'ready' ? 'unavailable' : undefined;
+    // Outside an image/transition hold, authored hiding ends current eligibility.
+    // Skipped, deferred and image-suppressed reads cannot establish that verdict.
+    return read === 'ready' || read === 'hidden' ? 'unavailable' : undefined;
   };
   const retainsUnselectedNativeSource = (element: HTMLElement) => unselectedNativeReleaseReason(element) === undefined;
   const releaseUnselectedSource = (element: HTMLElement, instant = false) => {

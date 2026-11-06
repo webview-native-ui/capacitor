@@ -48,7 +48,7 @@ Native light/dark appearance selects the system material and control appearance;
 
 When a blocking Web overlay requires native controls to leave the foreground, the runtime can display a prepared image on each original Web component or its Vertical Bars clone. This is a visual handoff, not another interactive control. Ionic keeps ownership of the overlay lifecycle, backdrop, focus and dismissal.
 
-Source ownership and pixel presentation have different lifetimes. Native ownership begins with an accepted projection and survives temporary image requests, preparation, movement, resizing and restoration. Image ownership only determines which pixels currently replace live Native controls. A deferred or skipped read is not a decision to return the source to Web.
+Source ownership and pixel presentation have different lifetimes. Native ownership begins with an accepted projection and survives temporary image requests, preparation, movement, resizing and restoration. Image ownership only determines which pixels currently replace live Native controls. A deferred or skipped read is not a decision to return the source to Web. Authored hiding outside an image or transition hold ends current eligibility. A Modal that no longer uses the rail also ends its Native rail selection.
 
 The handoff follows these rules:
 
