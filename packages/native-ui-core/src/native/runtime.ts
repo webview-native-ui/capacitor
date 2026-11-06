@@ -486,7 +486,7 @@ export const createRuntime = async (
   };
   // Native source ownership outlives pixel handoffs and deferred reads.
   // Suspension carries its explicit source lease, independent of playback state.
-  const nativeReleaseReason = (element: HTMLElement): NativeReleaseReason | undefined => {
+  const unselectedNativeReleaseReason = (element: HTMLElement): NativeReleaseReason | undefined => {
     const input = nativeOwners.get(element)?.input;
     // Ended contexts, explicit Web requests and confirmed failures override every temporary hold.
     if (!sourceContextActive(element) || (input && !sourceContextActive(input.element))) return 'context-ended';
@@ -509,9 +509,9 @@ export const createRuntime = async (
     // Skipped, deferred and suppressed reads cannot establish that verdict.
     return read === 'ready' ? 'unavailable' : undefined;
   };
-  const retainsNativeOwnership = (element: HTMLElement) => nativeReleaseReason(element) === undefined;
+  const retainsUnselectedNativeSource = (element: HTMLElement) => unselectedNativeReleaseReason(element) === undefined;
   const releaseUnselectedSource = (element: HTMLElement, instant = false) => {
-    const reason = nativeReleaseReason(element);
+    const reason = unselectedNativeReleaseReason(element);
     if (reason) releaseNativeOwner(element, reason, instant);
   };
   const readSources = (reuseDeferred = true): Candidate[] => {
@@ -762,7 +762,7 @@ export const createRuntime = async (
           }
           const retainedSources = new Set(retained.flatMap(candidateSources));
           for (const element of nativeOwners.keys())
-            if (!retainedSources.has(element) && !retainsNativeOwnership(element)) releaseUnselectedSource(element, true);
+            if (!retainedSources.has(element) && !retainsUnselectedNativeSource(element)) releaseUnselectedSource(element, true);
           const retirement: NativeUISnapshot = {
             ...renderedSnapshot,
             revision: ++revision,
@@ -882,12 +882,12 @@ export const createRuntime = async (
       const committingNavigation = navigation.current?.phase === 'committing';
       const preparingNavigation = navigation.current?.leased && navigation.current.phase === 'playing';
       const returningToWeb = removed.filter(
-        (element) => !retainsNativeOwnership(element) && (!committingNavigation || !navigation.owns(element)),
+        (element) => !retainsUnselectedNativeSource(element) && (!committingNavigation || !navigation.owns(element)),
       );
       if (returningToWeb.length) {
         // Restore the source and let WebKit paint before removing its native cover.
         returningToWeb.forEach((element) => releaseUnselectedSource(element, preparingNavigation));
-        if (removed.some((element) => isVerticalBarsSource(element) && !retainsNativeOwnership(element)))
+        if (removed.some((element) => isVerticalBarsSource(element) && !retainsUnselectedNativeSource(element)))
           win.dispatchEvent(new CustomEvent('nativeUIVerticalBarsRelease', { detail: { instant: handoffInstant } }));
         // The outgoing tab is no longer visible, so waiting two frames only leaves its
         // native snapshot over the destination. Stack transitions still need the paint.
@@ -1017,13 +1017,8 @@ export const createRuntime = async (
           (!candidate.scrollElement || !unconfirmedScroll.has(candidate.scrollElement)),
       );
       accepted.forEach((candidate) => setRejected(candidate.element, false));
-      const acceptedVerticalBarsOwners = new Set(
+      const acceptedRailElements = new Set(
         accepted.filter((candidate) => candidate.control.placement === 'vertical-bars').map((candidate) => candidate.element),
-      );
-      const acceptedVerticalBarsMembers = new Set(
-        accepted
-          .filter((candidate) => candidate.control.placement === 'vertical-bars')
-          .flatMap((candidate) => Array.from(candidate.actions.values())),
       );
       const invalidated = candidates.length !== accepted.length;
       renderedSnapshot = snapshot;
@@ -1035,28 +1030,37 @@ export const createRuntime = async (
       // Keep an existing cover while its content catches up. Only an ineligible
       // source needs to return to Web; new sources still require an exact ack.
       for (const element of nativeOwners.keys())
-        if (!currentSources.has(element) && !retainsNativeOwnership(element))
+        if (!currentSources.has(element) && !retainsUnselectedNativeSource(element))
           releaseUnselectedSource(element, committingNavigation && navigation.owns(element));
+      // Markers describe the acquired inputs, including leases retained across
+      // an outdated acknowledgement. An unconfirmed batch is not a Web transfer.
+      const acquiredInputs = new Map([...nativeOwners].map(([source, owner]) => [source, owner.input]));
+      for (const candidate of accepted) for (const source of candidateSources(candidate)) acquiredInputs.set(source, candidate);
+      const ownedRailInputs = [...acquiredInputs].filter(([, input]) => input.control.placement === 'vertical-bars');
+      const nextVerticalBarsOwners = new Set(ownedRailInputs.map(([, input]) => input.element));
+      const nextVerticalBarsMembers = new Set(
+        ownedRailInputs.flatMap(([source, input]) => [...input.actions.values()].filter((action) => source.contains(action))),
+      );
       for (const element of verticalBarsOwners) {
-        if (acceptedVerticalBarsOwners.has(element) || retainsNativeOwnership(element)) continue;
+        if (nextVerticalBarsOwners.has(element)) continue;
         element.removeAttribute(verticalBarsMarker);
         verticalBarsOwners.delete(element);
       }
-      for (const element of acceptedVerticalBarsOwners) {
-        element.setAttribute(verticalBarsMarker, '');
+      for (const element of nextVerticalBarsOwners) {
+        if (!element.hasAttribute(verticalBarsMarker)) element.setAttribute(verticalBarsMarker, '');
         verticalBarsOwners.add(element);
       }
       for (const element of verticalBarsMembers) {
-        if (acceptedVerticalBarsMembers.has(element) || retainsNativeOwnership(element)) continue;
+        if (nextVerticalBarsMembers.has(element)) continue;
         element.removeAttribute(verticalBarsMemberMarker);
         verticalBarsMembers.delete(element);
       }
-      for (const element of acceptedVerticalBarsMembers) {
-        element.setAttribute(verticalBarsMemberMarker, '');
+      for (const element of nextVerticalBarsMembers) {
+        if (!element.hasAttribute(verticalBarsMemberMarker)) element.setAttribute(verticalBarsMemberMarker, '');
         verticalBarsMembers.add(element);
       }
       acquiringSources = new Set(accepted.flatMap(candidateSources));
-      if (acceptedVerticalBarsOwners.size)
+      if (acceptedRailElements.size)
         win.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: handoffInstant } }));
       for (const candidate of accepted) {
         const width = result.tabBarWidths?.[candidate.control.id];
@@ -1142,7 +1146,7 @@ export const createRuntime = async (
       // Geometry belongs to the outgoing tab visual, not to other rail owners.
       // Keep it until that visual has completely faded back to native.
       for (const [tabBar, restore] of tabGeometry) {
-        if (!tabBar.isConnected || acceptedVerticalBarsOwners.has(tabBar)) {
+        if (!tabBar.isConnected || acceptedRailElements.has(tabBar)) {
           restore();
           tabGeometry.delete(tabBar);
         }

@@ -1297,3 +1297,59 @@ test('a rejected native tab selection retains ownership while its native pixels 
   await vi.waitFor(() => expect(latest!.controls).toHaveLength(1));
   expect(projectionState.nativeOwns(source)).toBe(true);
 });
+
+test('rail markers follow the acquired input through an outdated ACK and a fresh placement change', async () => {
+  const { source, options } = mount('<button type="button" data-native-ui="button" data-native-ui-placement="rail">First</button>');
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const pending: (() => void)[] = [];
+  const snapshots: NativeUISnapshot[] = [];
+  const plugin = {
+    addListener: async () => ({ remove: async () => {} }),
+    clear: async () => {},
+    update: async (snapshot: NativeUISnapshot) => {
+      snapshots.push(snapshot);
+      if (snapshots.length > 1) await new Promise<void>((resolve) => pending.push(resolve));
+      return { revision: snapshot.revision };
+    },
+  } as unknown as NativeUIPlugin;
+  const runtime = await createRuntime(document, plugin, options);
+  try {
+    await vi.waitFor(() => expect(projectionState.nativeOwns(source)).toBe(true));
+    expect(source.hasAttribute('data-native-ui-vertical-bars')).toBe(true);
+    source.textContent = 'Second';
+    runtime.markForCheck();
+    await vi.waitFor(() => expect(pending).toHaveLength(1));
+    source.textContent = 'Third';
+    runtime.markForCheck();
+    pending.shift()!();
+    await vi.waitFor(() => expect(snapshots).toHaveLength(3));
+    expect(projectionState.nativeOwns(source)).toBe(true);
+    expect(source.hasAttribute('data-native-ui-vertical-bars')).toBe(true);
+    expect(source.hasAttribute('data-native-ui-vertical-bars-member')).toBe(true);
+    source.setAttribute('data-native-ui-placement', 'element');
+    runtime.markForCheck();
+    pending.shift()!();
+    await vi.waitFor(() => expect(snapshots).toHaveLength(4));
+    expect(source.hasAttribute('data-native-ui-vertical-bars')).toBe(true);
+    pending.shift()!();
+    await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-vertical-bars')).toBe(false));
+    expect(source.hasAttribute('data-native-ui-vertical-bars-member')).toBe(false);
+    expect(projectionState.nativeOwns(source)).toBe(true);
+  } finally {
+    const destroyed = runtime.destroy();
+    pending.splice(0).forEach((resolve) => resolve());
+    await destroyed;
+  }
+});

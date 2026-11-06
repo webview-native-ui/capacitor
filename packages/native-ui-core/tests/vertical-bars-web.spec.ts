@@ -40,7 +40,9 @@ test('disabling Ionic discovery leaves an otherwise eligible verticalBars back b
   await nextFrame();
   expect(enabled.getStatus().projected).toBe(1);
   expect(document.querySelector('.ios-theme-vertical-bars-back-button-projection')).not.toBeNull();
+  const source = document.querySelector<HTMLElement>('ion-back-button')!;
   await enabled.destroy();
+  expect(projectionState.getTarget(source)).toBeUndefined();
 
   mountEligibleBackButton();
   const handle = createVerticalBarsWebProjection(document, { ionic: { auto: false } });
@@ -434,6 +436,7 @@ test.each([
       actions[0].removeAttribute('aria-hidden');
     } finally {
       await handle.destroy();
+      for (const source of [group, ...actions]) expect(projectionState.getTarget(source)).toBeUndefined();
       expect(modal?.shadowRoot?.querySelector('slot[data-native-ui-projection-node]')).toBeFalsy();
       expect(actions[0].hasAttribute('aria-hidden')).toBe(false);
       expect(actions[1].hasAttribute('data-native-ui-projected')).toBe(!grouped || !!partial);
@@ -468,4 +471,17 @@ test('tab width measurement does not refresh the Web rail, but source changes st
     widths.clear();
     document.body.replaceChildren();
   }
+});
+
+test('destroy does not remove a target registered by another renderer', async () => {
+  mountEligibleBackButton();
+  const source = document.querySelector<HTMLElement>('ion-back-button')!;
+  const handle = createVerticalBarsWebProjection(document, {});
+  await nextFrame();
+  expect(projectionState.getTarget(source)?.isConnected).toBe(true);
+  const replacement = document.createElement('ion-back-button');
+  projectionState.setTarget(source, replacement);
+  await handle.destroy();
+  expect(projectionState.getTarget(source)).toBe(replacement);
+  projectionState.deleteTarget(source);
 });
