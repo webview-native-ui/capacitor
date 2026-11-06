@@ -1,4 +1,4 @@
-import { observeVerticalBarsModals, movingModal, followingModal, modalMotionEvent } from '../src/native/shared/modal';
+import { observeVerticalBarsModals, movingModal, followingModal, modalRequestedPixels, modalMotionEvent } from '../src/native/shared/modal';
 import { afterEach, expect, test, vi } from 'vitest';
 import { coverOverlayBackground, usesCoveredBackground } from '../src/native/overlays/covered-overlay';
 import type { CoveredSnapshots } from '../src/native/shared/covered-snapshot';
@@ -57,6 +57,8 @@ test.each(['sheet', 'card'])('%s motion spans dragging and settling, without tre
   const stop = observeVerticalBarsModals(document);
   try {
     modal.dispatchEvent(new CustomEvent('ionModalDidPresent', { bubbles: true }));
+    expect(modalRequestedPixels(modal)).toBe('native');
+    events.length = 0; // Initial surface selection is separate from the gesture's motion events.
     modal.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     modal.dispatchEvent(new TouchEvent('touchstart', { bubbles: true }));
     await vi.advanceTimersByTimeAsync(20);
@@ -90,7 +92,12 @@ test.each(['sheet', 'card'])('%s motion spans dragging and settling, without tre
   }
 });
 
-test.each([136, 220])('rail only follows below its boundary, including a crossing during one drag from %s', async (initial) => {
+test.each([
+  [136, false],
+  [220, false],
+  [136, true],
+  [220, true],
+] as const)('rail follows only below its boundary, including reversal from %s while dismissing=%s', async (initial, dismissing) => {
   vi.useFakeTimers();
   document.body.innerHTML =
     '<ion-app class="ios-theme-vertical-bars" style="--ios-theme-vertical-bars-toolbar-top:174px"><ion-modal><ion-button class="ios-theme-vertical-bars-toolbar-projection"></ion-button></ion-modal></ion-app>';
@@ -108,14 +115,16 @@ test.each([136, 220])('rail only follows below its boundary, including a crossin
   const stop = observeVerticalBarsModals(document);
   try {
     modal.dispatchEvent(new CustomEvent('ionModalDidPresent', { bubbles: true }));
+    if (dismissing) modal.dispatchEvent(new CustomEvent('ionModalWillDismiss', { bubbles: true }));
     modal.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     await vi.advanceTimersByTimeAsync(20);
-    expect(followingModal(document)).toBeUndefined(); // A stationary touch needs no image.
+    expect(followingModal(document)).toBeUndefined(); // A stationary touch is not motion.
+    expect(modalRequestedPixels(modal)).toBe(dismissing ? 'image' : 'native');
     y -= 10;
     railY = initial > 150 ? 234 : 174;
     await vi.advanceTimersByTimeAsync(20);
     expect(movingModal(document)).toBe(modal);
-    expect(followingModal(document)).toBe(initial > 150 ? modal : undefined);
+    expect(followingModal(document)).toBe(dismissing || initial > 150 ? modal : undefined);
     for (const [nextY, nextRailY, follows] of [
       [100, 174, false],
       [200, 224, true],
@@ -126,14 +135,44 @@ test.each([136, 220])('rail only follows below its boundary, including a crossin
       railY = nextRailY;
       await vi.advanceTimersByTimeAsync(20);
       expect(movingModal(document)).toBe(modal);
-      expect(followingModal(document)).toBe(follows ? modal : undefined);
+      expect(followingModal(document)).toBe(dismissing || follows ? modal : undefined);
+      expect(modalRequestedPixels(modal)).toBe(dismissing || follows ? 'image' : 'native');
     }
     modal.dispatchEvent(new Event('pointerup', { bubbles: true }));
     await vi.advanceTimersByTimeAsync(40);
     expect(followingModal(document)).toBeUndefined();
+    expect(modalRequestedPixels(modal)).toBe(dismissing ? 'image' : 'native');
   } finally {
     stop();
     vi.useRealTimers();
+  }
+});
+
+test('non-interactive presentation and dismissal request images even while stationary above the boundary', () => {
+  document.body.innerHTML =
+    '<ion-app class="ios-theme-vertical-bars" style="--ios-theme-vertical-bars-toolbar-top:174px"><ion-modal><ion-button class="ios-theme-vertical-bars-toolbar-projection"></ion-button></ion-modal></ion-app>';
+  const modal = document.querySelector('ion-modal')!;
+  const wrapper = document.createElement('div');
+  wrapper.setAttribute('part', 'content');
+  wrapper.getBoundingClientRect = () => DOMRect.fromRect({ y: 100, width: innerWidth, height: innerHeight - 100 });
+  wrapper.getAnimations = () => [];
+  Object.defineProperty(wrapper, 'offsetWidth', { value: innerWidth });
+  modal.attachShadow({ mode: 'open' }).append(wrapper);
+  modal.querySelector('ion-button')!.getBoundingClientRect = () => DOMRect.fromRect({ y: 174, width: 48, height: 48 });
+  const stop = observeVerticalBarsModals(document);
+  try {
+    modal.dispatchEvent(new CustomEvent('ionModalWillPresent', { bubbles: true }));
+    expect(movingModal(document)).toBeUndefined();
+    expect(modalRequestedPixels(modal)).toBe('image');
+    modal.dispatchEvent(new CustomEvent('ionModalDidPresent', { bubbles: true }));
+    expect(modalRequestedPixels(modal)).toBe('native');
+    modal.dispatchEvent(new CustomEvent('ionModalWillDismiss', { bubbles: true }));
+    expect(movingModal(document)).toBeUndefined();
+    expect(modalRequestedPixels(modal)).toBe('image');
+    modal.dispatchEvent(new CustomEvent('ionModalDidDismiss', { bubbles: true }));
+    expect(modalRequestedPixels(modal)).toBe('native');
+  } finally {
+    stop();
   }
 });
 

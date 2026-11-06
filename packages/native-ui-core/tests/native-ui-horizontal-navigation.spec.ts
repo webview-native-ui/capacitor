@@ -929,7 +929,7 @@ test('a successful synchronization restores the single retry allowance', async (
   }
 });
 
-test('a dismissing modal retires once and never reacquires while its frame moves', async () => {
+test('a dismissing modal without image support keeps Native ownership and follows its frame', async () => {
   const f = await fixture('Menu', 'Back');
   const app = document.querySelector('ion-app')!;
   app.classList.add('ios-theme-vertical-bars');
@@ -965,9 +965,7 @@ test('a dismissing modal retires once and never reacquires while its frame moves
     expect(f.snapshots.at(-1)?.verticalBarNavigation).toHaveLength(1);
   });
   modal.dispatchEvent(new CustomEvent('ionModalWillDismiss', { bubbles: true }));
-  await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls).toHaveLength(0));
-  expect(f.snapshots.at(-1)?.transitionDuration).toBe(0);
-  const retired = f.snapshots.length;
+  expect(f.snapshots.at(-1)?.controls).toHaveLength(1);
   for (let i = 0; i < 5; i++) {
     content.getBoundingClientRect = () =>
       ({
@@ -983,7 +981,8 @@ test('a dismissing modal retires once and never reacquires while its frame moves
     window.dispatchEvent(new Event('nativeUIRefresh'));
     await new Promise((resolve) => setTimeout(resolve, 30));
   }
-  expect(f.snapshots).toHaveLength(retired);
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarFrame?.y).toBe(300));
+  expect(f.snapshots.at(-1)?.controls).toHaveLength(1);
   expect(f.leaving.querySelector('button')!.hasAttribute('data-native-ui-projected')).toBe(true);
   modal.dispatchEvent(new CustomEvent('ionModalDidDismiss', { bubbles: true }));
   expect(f.leaving.querySelector('button')!.hasAttribute('data-native-ui-projected')).toBe(false);

@@ -23,7 +23,7 @@ export const verticalBarFrame = (element: Element): Frame | undefined => {
 
 const modalRailSlot = 'native-ui-vertical-bars';
 
-/** Place inert native-image targets outside the transformed wrapper, keeping interactive fallback in its dialog. */
+/** Image targets share the dialog's transform; interactive Web fallback keeps its normal slot. */
 export const placeModalRailTarget = (target: HTMLElement, surface: HTMLElement) => {
   if (!surface.matches('ion-modal') || !surface.shadowRoot) return;
   if (
@@ -31,18 +31,27 @@ export const placeModalRailTarget = (target: HTMLElement, surface: HTMLElement) 
     !surface.ownerDocument.defaultView!.getComputedStyle(surface).getPropertyValue('--ios-theme-vertical-bars-modal-toolbar-top').trim()
   )
     return;
-  if (!surface.shadowRoot.querySelector(`slot[name="${modalRailSlot}"]`)) {
-    const slot = surface.ownerDocument.createElement('slot');
+  const content = surface.shadowRoot.querySelector<HTMLElement>('[part~="content"]');
+  if (!content) return;
+  let slot = surface.shadowRoot.querySelector<HTMLSlotElement>(`slot[name="${modalRailSlot}"]`);
+  if (!slot) {
+    slot = surface.ownerDocument.createElement('slot');
     slot.name = modalRailSlot;
     slot.setAttribute('data-native-ui-projection-node', '');
-    surface.shadowRoot.append(slot);
   }
+  if (slot.parentElement !== content) content.append(slot);
   target.slot = modalRailSlot;
-  target.style.position = 'fixed';
-  // The theme's local top already clamps at the reserved toolbar boundary.
-  // Convert it to viewport coordinates without inheriting the wrapper transform.
-  target.style.top =
-    'calc(var(--ios-theme-vertical-bars-modal-toolbar-top) + var(--ios-theme-vertical-bars-modal-offset-top, 0px) + var(--ios-theme-vertical-bars-toolbar-offset, 0px))';
+  target.style.position = 'absolute';
+  target.style.top = 'calc(var(--ios-theme-vertical-bars-modal-toolbar-top) + var(--ios-theme-vertical-bars-toolbar-offset, 0px))';
+  // Native bounds and theme edges are relative to the surface. Convert both
+  // horizontal anchors into the dialog without accumulating offsets on rereads.
+  // Layout offsets deliberately exclude translation, scale and transform-origin.
+  // Those transforms must carry the image, rather than enter this conversion.
+  const style = surface.ownerDocument.defaultView!.getComputedStyle(content);
+  const left = content.offsetLeft + (parseFloat(style.borderLeftWidth) || 0);
+  const right = content.offsetLeft + content.offsetWidth - (parseFloat(style.borderRightWidth) || 0);
+  target.style.marginLeft = `${-left}px`;
+  target.style.marginRight = `${right - surface.clientWidth}px`;
 };
 
 export const removeEmptyModalRailSlot = (surface: HTMLElement) => {

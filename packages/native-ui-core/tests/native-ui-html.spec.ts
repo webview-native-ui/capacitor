@@ -1170,17 +1170,31 @@ test.each([2, 3])('%s modal surfaces keep independent images through nesting, dr
     // The observer's boundary transitions are covered separately; keep raw motion active here.
     capture.mockClear();
     const modalState = await import('../src/native/shared/modal');
-    const following = vi.spyOn(modalState, 'followingModal').mockReturnValue(undefined);
-    window.dispatchEvent(new CustomEvent(modalState.modalMotionEvent, { detail: { modal: top.modal, moving: true, following: false } }));
+    const requestedPixels = vi.spyOn(modalState, 'modalRequestedPixels').mockReturnValue('native');
+    window.dispatchEvent(
+      new CustomEvent(modalState.modalMotionEvent, {
+        detail: { modal: top.modal, moving: true, following: false, requestedPixels: 'native' },
+      }),
+    );
     await vi.waitFor(() => expect(capture.mock.calls.some(([args]) => args.action === 'restored')).toBe(true));
     expect(movingModal(document)).toBe(top.modal);
     expect(top.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
     expect(top.source.hasAttribute('data-native-ui-projected')).toBe(true);
-    following.mockRestore();
+    requestedPixels.mockRestore();
     top.modal.dispatchEvent(new Event('pointerup', { bubbles: true }));
     while (surfaces.length > 1) {
       const departing = surfaces.pop()!;
+      await vi.waitFor(() => expect(movingModal(document)).toBeUndefined());
       departing.modal.dispatchEvent(new Event('ionModalWillDismiss', { bubbles: true }));
+      await vi.waitFor(() => expect(departing.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true));
+      // A breakpoint notification must not restore Native during locked dismissal,
+      // even after raw movement has stopped and the overlay requests a bulk end.
+      capture.mockClear();
+      departing.modal.dispatchEvent(new CustomEvent('ionBreakpointDidChange', { bubbles: true, detail: { breakpoint: 0 } }));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(modalState.modalRequestedPixels(departing.modal)).toBe('image');
+      expect(departing.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+      expect(capture.mock.calls.some(([args]) => args.action === 'restore')).toBe(false);
       Object.assign(departing.modal, { presented: false });
       departing.modal.dispatchEvent(new Event('ionModalDidDismiss', { bubbles: true }));
       expect(departing.source.hasAttribute('data-native-ui-projected')).toBe(false);

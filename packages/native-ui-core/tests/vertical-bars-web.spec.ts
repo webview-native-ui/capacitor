@@ -286,7 +286,7 @@ test.each([false, true])('modal image targets survive dismissal before/after cov
     expect(outgoing.isConnected).toBe(true);
     expect(outgoing.inert).toBe(true);
     expect(outgoing.hasAttribute('aria-hidden')).toBe(false);
-    expect(outgoing.assignedSlot?.parentNode).toBe(modal.shadowRoot);
+    expect(outgoing.assignedSlot?.parentNode).toBe(wrapper);
     preparedOwners.delete(close);
     owners.add(close);
     if (visible) visibleOwners.add(close);
@@ -417,12 +417,12 @@ test.each([
       expect(target.hasAttribute('data-native-ui-proxy-prepared')).toBe(true);
       if (modal) {
         expect(target.closest('ion-modal')).toBe(modal);
-        expect(target.assignedSlot?.parentNode).toBe(modal.shadowRoot);
-        expect(wrapper.contains(target.assignedSlot)).toBe(false);
+        expect(target.assignedSlot?.parentNode).toBe(wrapper);
+        expect(wrapper.contains(target.assignedSlot)).toBe(true);
         actions[0].setAttribute('aria-label', 'Updated close');
         await nextFrame();
         expect(projectionState.getTarget(group)).toBe(target);
-        expect(target.assignedSlot?.parentNode).toBe(modal.shadowRoot);
+        expect(target.assignedSlot?.parentNode).toBe(wrapper);
       }
       for (const source of actions) expect(projectionState.getTarget(source)?.isConnected).toBe(true);
       expect(projectionState.getTarget(actions[0])).not.toBe(projectionState.getTarget(actions[1]));

@@ -34,8 +34,8 @@ import {
   modalUsesVerticalBars,
   modalVerticalBarFrame,
   modalPreparing,
-  modalDismissing,
   modalPresentation,
+  modalRequestedPixels,
 } from './shared/modal.js';
 import type { PluginListenerHandle } from '../host.js';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from './shared/events.js';
@@ -510,10 +510,6 @@ export const createRuntime = async (
   };
   const readSources = (reuseDeferred = true): Candidate[] => {
     sourceReads.clear();
-    // Ionic owns closing motion; the native image keeps ownership until DidDismiss
-    // instead of repeatedly projecting the moving modal controls.
-    const modal = topModal(doc);
-    if (modal && modalDismissing(modal)) return [];
     if (verticalGesture && (overlayOpen(true, true) || !verticalGesture.scopes.every(inVerticalBarsSurface))) verticalGesture = undefined;
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
@@ -720,9 +716,6 @@ export const createRuntime = async (
       // deferred retirement still runs instantly after the overlay releases.
       if (updateQueue.waiting || (retentions.size && !manualSuspensions.size)) return;
       const enteringModal = topModal(doc);
-      // Geometry refreshes continue for the Web rail during the Ionic animation.
-      // Once native has acknowledged retirement, they must not publish it again.
-      if (enteringModal && modalDismissing(enteringModal) && renderedSnapshot?.controls.length === 0) return;
       if (enteringModal && modalPresentation(enteringModal)?.animation.id === playingModalAnimation && playingModalAnimation !== undefined)
         return;
       modalHandoff = false;
@@ -908,10 +901,7 @@ export const createRuntime = async (
               : 'right'
             : undefined;
       const modal = topModal(doc);
-      const verticalBarFrame =
-        modal && !modalPreparing(modal) && !modalDismissing(modal) && modalUsesVerticalBars(modal)
-          ? modalVerticalBarFrame(modal)
-          : undefined;
+      const verticalBarFrame = modal && !modalPreparing(modal) && modalUsesVerticalBars(modal) ? modalVerticalBarFrame(modal) : undefined;
       const transition = navigation.current;
       const railCandidates = candidates.filter((candidate) => candidate.control.placement === 'vertical-bars');
       const activePage = railCandidates.length
@@ -1426,7 +1416,8 @@ export const createRuntime = async (
         imagesFor(coveredSurface(modal))?.invalidate();
     }
     if (phase === 'willDismiss' && element.matches('ion-modal')) {
-      projectionSurfaces.get(element as HTMLIonModalElement)?.begin();
+      // The common presentation policy requests images for this interaction-locked
+      // transition. Source ownership ends only at DidDismiss.
       modalHandoff = true;
       if (updateQueue.running) handoffInstant = true;
       schedule();
@@ -1692,14 +1683,18 @@ export const createRuntime = async (
                 topModal(doc) !== modal ||
                 modalPreparing(modal) ||
                 !!modalPresentation(modal) ||
-                followingModal(doc) === modal ||
+                modalRequestedPixels(modal) === 'image' ||
                 !!navigation.current ||
                 stopped ||
                 overlayOpen(true, true),
             }),
           );
           if (surface && !modalStack(doc).includes(modal)) await projectionSurfaces.delete(modal);
-          else if (surface) schedule();
+          else if (surface) {
+            // Creation can finish after the policy event; apply the current request.
+            if (modalRequestedPixels(modal) === 'image') surface.begin();
+            schedule();
+          }
         } catch {
           // This surface keeps the existing Web fallback if the optional listener fails.
         }
@@ -1710,16 +1705,13 @@ export const createRuntime = async (
       });
       await Promise.all(modalStack(doc).map(prepareSurface));
       on(win, modalMotionEvent, (event) => {
-        const {
-          modal,
-          moving,
-          following = moving,
-        } = (event as CustomEvent<{ modal: HTMLIonModalElement; moving: boolean; following?: boolean }>).detail;
+        const { modal, requestedPixels } = (event as CustomEvent<{ modal: HTMLIonModalElement; requestedPixels: 'native' | 'image' }>)
+          .detail;
         const surface = projectionSurfaces.get(modal);
-        if (moving && following) {
+        if (requestedPixels === 'image') {
           surface?.begin();
           schedule();
-        } else if (!modalDismissing(modal)) {
+        } else {
           const imageOwned = !!surface?.owners.length;
           surface?.end();
           if (imageOwned) {
