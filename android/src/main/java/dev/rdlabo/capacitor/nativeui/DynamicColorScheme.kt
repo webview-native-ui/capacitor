@@ -8,7 +8,6 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.graphics.toArgb
 import com.getcapacitor.JSObject
-import java.util.Locale
 
 internal object DynamicColorScheme {
     fun read(context: Context): JSObject {
@@ -25,13 +24,53 @@ internal object DynamicColorScheme {
         val result = JSObject()
         mapOf(
             "primary" to scheme.primary,
+            "onPrimary" to scheme.onPrimary,
+            "primaryContainer" to scheme.primaryContainer,
+            "onPrimaryContainer" to scheme.onPrimaryContainer,
+            "inversePrimary" to scheme.inversePrimary,
             "secondary" to scheme.secondary,
+            "onSecondary" to scheme.onSecondary,
+            "secondaryContainer" to scheme.secondaryContainer,
+            "onSecondaryContainer" to scheme.onSecondaryContainer,
             "tertiary" to scheme.tertiary,
+            "onTertiary" to scheme.onTertiary,
+            "tertiaryContainer" to scheme.tertiaryContainer,
+            "onTertiaryContainer" to scheme.onTertiaryContainer,
             "error" to scheme.error,
+            "onError" to scheme.onError,
+            "errorContainer" to scheme.errorContainer,
+            "onErrorContainer" to scheme.onErrorContainer,
             "surface" to scheme.surface,
             "onSurface" to scheme.onSurface,
+            "surfaceVariant" to scheme.surfaceVariant,
+            "onSurfaceVariant" to scheme.onSurfaceVariant,
+            "surfaceTint" to scheme.surfaceTint,
+            "inverseSurface" to scheme.inverseSurface,
+            "inverseOnSurface" to scheme.inverseOnSurface,
+            "outline" to scheme.outline,
+            "outlineVariant" to scheme.outlineVariant,
+            "scrim" to scheme.scrim,
+            "surfaceBright" to scheme.surfaceBright,
+            "surfaceDim" to scheme.surfaceDim,
+            "surfaceContainer" to scheme.surfaceContainer,
+            "surfaceContainerHigh" to scheme.surfaceContainerHigh,
+            "surfaceContainerHighest" to scheme.surfaceContainerHighest,
+            "surfaceContainerLow" to scheme.surfaceContainerLow,
+            "surfaceContainerLowest" to scheme.surfaceContainerLowest,
+            "primaryFixed" to scheme.primaryFixed,
+            "primaryFixedDim" to scheme.primaryFixedDim,
+            "onPrimaryFixed" to scheme.onPrimaryFixed,
+            "onPrimaryFixedVariant" to scheme.onPrimaryFixedVariant,
+            "secondaryFixed" to scheme.secondaryFixed,
+            "secondaryFixedDim" to scheme.secondaryFixedDim,
+            "onSecondaryFixed" to scheme.onSecondaryFixed,
+            "onSecondaryFixedVariant" to scheme.onSecondaryFixedVariant,
+            "tertiaryFixed" to scheme.tertiaryFixed,
+            "tertiaryFixedDim" to scheme.tertiaryFixedDim,
+            "onTertiaryFixed" to scheme.onTertiaryFixed,
+            "onTertiaryFixedVariant" to scheme.onTertiaryFixedVariant,
         ).forEach { (role, color) ->
-            result.put(role, String.format(Locale.ROOT, "#%06x", color.toArgb() and 0xffffff))
+            result.put(role, "#" + Integer.toHexString(color.toArgb() and 0xffffff).padStart(6, '0'))
         }
         return result
     }

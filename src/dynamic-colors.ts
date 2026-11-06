@@ -2,8 +2,59 @@ import { Capacitor } from '@capacitor/core';
 import { nativeUIPlugin as plugin } from './host.js';
 import type { PluginListenerHandle } from '@capacitor/core';
 
-/** Material color roles, resolved by Android for one brightness. */
-export interface MaterialColorScheme {
+/** Optional Material roles enrich the theme; Ionic palettes remain sufficient on their own. */
+export const materialColorRoles = [
+  'primary',
+  'onPrimary',
+  'primaryContainer',
+  'onPrimaryContainer',
+  'inversePrimary',
+  'secondary',
+  'onSecondary',
+  'secondaryContainer',
+  'onSecondaryContainer',
+  'tertiary',
+  'onTertiary',
+  'tertiaryContainer',
+  'onTertiaryContainer',
+  'error',
+  'onError',
+  'errorContainer',
+  'onErrorContainer',
+  'surface',
+  'onSurface',
+  'surfaceVariant',
+  'onSurfaceVariant',
+  'surfaceTint',
+  'inverseSurface',
+  'inverseOnSurface',
+  'outline',
+  'outlineVariant',
+  'scrim',
+  'surfaceBright',
+  'surfaceDim',
+  'surfaceContainer',
+  'surfaceContainerHigh',
+  'surfaceContainerHighest',
+  'surfaceContainerLow',
+  'surfaceContainerLowest',
+  'primaryFixed',
+  'primaryFixedDim',
+  'onPrimaryFixed',
+  'onPrimaryFixedVariant',
+  'secondaryFixed',
+  'secondaryFixedDim',
+  'onSecondaryFixed',
+  'onSecondaryFixedVariant',
+  'tertiaryFixed',
+  'tertiaryFixedDim',
+  'onTertiaryFixed',
+  'onTertiaryFixedVariant',
+] as const;
+export type MaterialColorRole = (typeof materialColorRoles)[number];
+
+/** Six compatibility inputs; every additional Material role is optional. */
+export interface MaterialColorScheme extends Partial<Record<MaterialColorRole, string>> {
   primary: string;
   secondary: string;
   tertiary: string;

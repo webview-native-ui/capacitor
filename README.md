@@ -127,8 +127,11 @@ CocoaPods continues to compile the adapter and shared sources into the existing 
 The `@rdlabo/capacitor-native-ui/dynamic-colors` entrypoint exports
 `getDynamicColorScheme()` and `addDynamicColorListener(listener)`. These work
 independently of Native UI projection. Android 12+ returns `{ available: true,
-systemDark, light, dark }`, with `primary`, `secondary`, `tertiary`, `error`,
-`surface`, and `onSurface` as opaque `#RRGGBB` colors for each scheme. The OS
+systemDark, light, dark }`, with supported Material `ColorScheme` roles as opaque `#RRGGBB` colors for
+each scheme, including accent/on-accent/container pairs, surface containers,
+outline, inverse, scrim, and fixed roles. The original six compatibility fields
+remain required in TypeScript; additional roles are optional so consumers can
+accept partial schemes. The OS
 palette is used without changing the Activity theme or requesting wallpaper
 permissions. Other platforms return `{ available: false, systemDark }`.
 
@@ -136,3 +139,8 @@ The listener returns a removable handle and invalidates cached colors on Android
 resume/configuration changes. Fetch again when notified. For Ionic conversion and
 `system` / `light` / `dark` mode control, pass the getter and listener to
 `enableDynamicColors` from `@rdlabo/ionic-theme-md3/dynamic-colors`.
+
+Ionic themes do not require these extra roles: ionic-theme-md3 derives its default
+component colors from Ionic palettes alone. Material You optionally supplies more
+precise `--md-sys-color-*` overrides, preserving the Material foreground/background
+pairs. No additional native calls are needed for the expanded role set.
