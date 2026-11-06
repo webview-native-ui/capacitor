@@ -217,10 +217,11 @@ export const createRuntime = async (
     .ion-cloned-element:is([data-native-ui-snapshot-source], [data-native-ui-proxy-prepared]):not([data-native-ui-snapshot-visible]) { opacity: 0 !important; content-visibility: hidden !important; }
     [${marker}], [${marker}] *, [${navigationMarker}], [${navigationMarker}] * { pointer-events: none !important; }
     /* Clip snapshot padding only for the Modal rail below its pinned boundary. */
-    ion-modal.ios-theme-vertical-bars-modal > [slot="native-ui-vertical-bars"][data-native-ui-snapshot-visible],
-    ion-modal.ios-theme-vertical-bars-modal > [slot="native-ui-vertical-bars"] [data-native-ui-snapshot-visible] {
-      overflow: var(--native-ui-modal-rail-image-overflow, visible) !important;
-      border-radius: var(--native-ui-modal-rail-image-radius, 999px) !important;
+    ion-modal.ios-theme-vertical-bars-modal[data-native-ui-modal-rail-clip] > [slot="native-ui-vertical-bars"][data-native-ui-snapshot-visible],
+    ion-modal.ios-theme-vertical-bars-modal[data-native-ui-modal-rail-clip] > [slot="native-ui-vertical-bars"] [data-native-ui-snapshot-visible] {
+      overflow: visible !important;
+      /* Preserve the glass rim outside the measured control bounds. */
+      clip-path: inset(-1px round calc(var(--native-ui-modal-rail-image-radius, 999px) + 1px)) !important;
     }
     /* The theme's fixed Back clone must not reintroduce a Web button while
        navigation keeps its source under native ownership. */
@@ -761,8 +762,7 @@ export const createRuntime = async (
             candidate.actions.delete(configuration.closeId);
           }
           const retainedSources = new Set(retained.flatMap(candidateSources));
-          for (const element of nativeOwners.keys())
-            if (!retainedSources.has(element) && !retainsUnselectedNativeSource(element)) releaseUnselectedSource(element, true);
+          for (const element of nativeOwners.keys()) if (!retainedSources.has(element)) releaseUnselectedSource(element, true);
           const retirement: NativeUISnapshot = {
             ...renderedSnapshot,
             revision: ++revision,
@@ -1030,8 +1030,7 @@ export const createRuntime = async (
       // Keep an existing cover while its content catches up. Only an ineligible
       // source needs to return to Web; new sources still require an exact ack.
       for (const element of nativeOwners.keys())
-        if (!currentSources.has(element) && !retainsUnselectedNativeSource(element))
-          releaseUnselectedSource(element, committingNavigation && navigation.owns(element));
+        if (!currentSources.has(element)) releaseUnselectedSource(element, committingNavigation && navigation.owns(element));
       // Markers describe the acquired inputs, including leases retained across
       // an outdated acknowledgement. An unconfirmed batch is not a Web transfer.
       const acquiredInputs = new Map([...nativeOwners].map(([source, owner]) => [source, owner.input]));

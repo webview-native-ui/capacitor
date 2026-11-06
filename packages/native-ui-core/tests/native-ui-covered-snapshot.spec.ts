@@ -298,7 +298,7 @@ test.each([false, true])('another overlay retires only the return copy (acknowle
   expect(f.bridge).toHaveBeenCalledWith({ action: 'restored', token: 'image-1' });
 });
 
-test('a stalled native restoration releases the image and Web ownership promptly', async () => {
+test('a stalled native restoration releases the image lease promptly', async () => {
   const f = await fixture();
   f.manager.consider(1, [f.candidate]);
   await drain();
@@ -313,7 +313,7 @@ test('a stalled native restoration releases the image and Web ownership promptly
   expect(f.manager.token).toBe('image-2');
 });
 
-test('a failed native cover notification releases ownership to ordinary Web projection', async () => {
+test('a failed native cover notification releases the image lease', async () => {
   const f = await fixture();
   f.manager.consider(1, [f.candidate]);
   await drain();

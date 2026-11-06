@@ -362,6 +362,7 @@ test.each([
   { surface: 'modal', grouped: false },
   { surface: 'page', grouped: false },
   { surface: 'page', grouped: true, partial: true },
+  { surface: 'modal', grouped: true, partial: true },
 ])(
   'native $surface actions (grouped=$grouped) have hidden image targets before the first capture',
   async ({ surface, grouped, partial }) => {

@@ -198,11 +198,7 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
           : app && appStyle && modal.classList.contains(modalRailClass)
             ? railPosition(modal, app, appStyle)
             : 'unknown';
-      const overflow = modal.classList.contains(modalRailClass) ? (position === 'below' ? 'hidden' : 'visible') : '';
-      if (modal.style.getPropertyValue('--native-ui-modal-rail-image-overflow') !== overflow) {
-        if (overflow) modal.style.setProperty('--native-ui-modal-rail-image-overflow', overflow);
-        else modal.style.removeProperty('--native-ui-modal-rail-image-overflow');
-      }
+      modal.toggleAttribute('data-native-ui-modal-rail-clip', modal.classList.contains(modalRailClass) && position === 'below');
     }
     // Non-interactive transitions use images regardless of the boundary. During
     // interaction, only dragging/snapping below the boundary needs image following.
@@ -334,7 +330,7 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
     doc.querySelectorAll<HTMLElement>(`.${modalRailClass}`).forEach((modal) => {
       modal.classList.remove(modalRailClass);
       modal.style.removeProperty(toolbarTop);
-      modal.style.removeProperty('--native-ui-modal-rail-image-overflow');
+      modal.removeAttribute('data-native-ui-modal-rail-clip');
     });
   };
 };

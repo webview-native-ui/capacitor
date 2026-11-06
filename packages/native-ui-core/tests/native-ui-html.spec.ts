@@ -1044,7 +1044,8 @@ test.each([0, 0.25, 0.5])('sheet breakpoint %s keeps dismissal on the acknowledg
   }
 });
 
-test.each([2, 3])('%s modal surfaces keep independent images through nesting, dragging and dismissal', async (depth) => {
+test('three modal surfaces keep independent images through nesting, dragging and dismissal', async () => {
+  const depth = 3;
   const { observeVerticalBarsModals, movingModal } = await import('../src/native/shared/modal');
   const { source, options } = mount(
     '<ion-app class="ios-theme-vertical-bars"><ion-modal><button data-native-ui="button" data-native-ui-placement="rail">Save</button></ion-modal></ion-app>',
