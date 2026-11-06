@@ -122,7 +122,10 @@ Capacitor apps continue to use the `RdlaboCapacitorNativeUi` product and `import
 
 CocoaPods continues to compile the adapter and shared sources into the existing plugin pod. This change does not publish a standalone Core pod or implement a Cordova adapter.
 
-## Android dynamic colors
+## Android dynamic colors (experimental)
+
+> **Experimental:** The dynamic color API, returned color roles, and change
+> notification behavior may change in future releases.
 
 The `@rdlabo/capacitor-native-ui/dynamic-colors` entrypoint exports
 `getDynamicColorScheme()` and `addDynamicColorListener(listener)`. These work
