@@ -5,6 +5,16 @@ import UIKit
 /// Compact square ancestors approximate the system button surface; this remains
 /// a layout heuristic and invalid measurements fall back to Web CSS.
 enum NativeUIVerticalBarsGeometry {
+    /// Capture and handoff use the same geometry, including lazy AX fallback.
+    static func resolve(in root: UIView, relativeTo webView: UIView, ids: Set<String>, controls: [NativeUIControl]) -> [String: CGRect] {
+        guard let window = root.window, window === webView.window else { return [:] }
+        var result = measure(in: root, relativeTo: webView, ids: ids)
+        for (id, frame) in componentFrames(in: root, relativeTo: webView, controls: controls) where ids.contains(id) && result[id] == nil {
+            result[id] = frame
+        }
+        return result
+    }
+
     static func measure(in root: UIView, relativeTo webView: UIView, ids: Set<String>) -> [String: CGRect] {
         guard let window = root.window, window === webView.window else { return [:] }
         root.layoutIfNeeded()
@@ -83,6 +93,9 @@ enum NativeUIVerticalBarsGeometry {
         var result: [String: CGRect] = [:]
         var offset = 0
         for control in ordered {
+            for (index, item) in control.items.enumerated() { result[item.id] = frames[offset + index] }
+            if control.kind == .backButton { result["BackButton"] = frames[offset] }
+            if control.kind == .tabBar { result["__tabBar"] = frames[offset..<(offset + control.items.count)].reduce(CGRect.null) { $0.union($1) } }
             result[control.id] = frames[offset..<(offset + control.items.count)].reduce(CGRect.null) { $0.union($1) }
             offset += control.items.count
         }

@@ -11,9 +11,14 @@ export const createCoveredSnapshots = async (
 ) => {
   const state = getProjectionState(doc);
   const { modal, wake, blocked, revision } = callbacks;
+  const imageSurface = modal && typeof plugin.getVerticalBarsGeometry === 'function' ? doc.createElement('div') : undefined;
+  if (imageSurface) {
+    imageSurface.setAttribute('data-native-ui-projection-node', '');
+    imageSurface.style.cssText = 'position:fixed;inset:0;pointer-events:none';
+  }
   const projection = await createWebProjectionSurface(
     {
-      send: (request) => plugin.coveredSnapshot!(request),
+      send: (request) => plugin.coveredSnapshot!(modal && request.action === 'prepare' ? { ...request, captureMode: 'view' } : request),
       listen: (listener) => listen('snapshotInteraction', listener),
     },
     {
@@ -30,6 +35,7 @@ export const createCoveredSnapshots = async (
       blocked,
       revision,
       transient: !!modal,
+      imageSurface,
       eligible: (source) =>
         modal
           ? source.element.closest('ion-modal') === modal && source.control.placement === 'vertical-bars'
@@ -39,11 +45,40 @@ export const createCoveredSnapshots = async (
   );
   const unregister = state.register(projection);
   const destroy = projection.destroy;
+  const consider = projection.consider;
+
   return Object.assign(projection, {
+    get webSurface() {
+      return !!imageSurface;
+    },
+    consider(revision: number, sources: Parameters<typeof consider>[1]) {
+      if (
+        imageSurface &&
+        !imageSurface.isConnected &&
+        sources.some((source) => source.control.placement === 'vertical-bars' && source.element.closest('ion-modal') === modal)
+      ) {
+        imageSurface.style.zIndex = doc.defaultView!.getComputedStyle(modal!).zIndex;
+        (modal!.parentElement ?? doc.body).append(imageSurface);
+      }
+      consider(
+        revision,
+        modal
+          ? sources.map((source) => {
+              const target = source.control.placement === 'vertical-bars' && state.getTarget(source.element);
+              if (!target) return source;
+              // Rail pixels follow their renderer-owned target, not the concealed Web source.
+              // Source translation must not retire prepared pixels during a Modal gesture.
+              const { x, y } = target.getBoundingClientRect();
+              return { ...source, control: { ...source.control, x, y } };
+            })
+          : sources,
+      );
+    },
     async destroy() {
       try {
         await destroy();
       } finally {
+        imageSurface?.remove();
         unregister();
       }
     },

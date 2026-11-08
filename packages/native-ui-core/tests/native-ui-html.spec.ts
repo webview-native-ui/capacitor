@@ -1044,7 +1044,10 @@ test.each([0, 0.25, 0.5])('sheet breakpoint %s keeps dismissal on the acknowledg
   }
 });
 
-test('three modal surfaces keep independent images through nesting, dragging and dismissal', async () => {
+test.each(['valid', 'empty', 'reject'] as const)('three Modal surfaces retain Native through geometry=%s', async (geometryMode) => {
+  for (const key of ['owners', 'visibleOwners', 'preparedOwners'] as const) vi.spyOn(projectionState, key, 'get').mockRestore();
+  vi.mocked(projectionState.imageOwns).mockRestore();
+  vi.mocked(projectionState.imageVisible).mockRestore();
   const depth = 3;
   const { observeVerticalBarsModals, movingModal } = await import('../src/native/shared/modal');
   const { source, options } = mount(
@@ -1107,6 +1110,10 @@ test('three modal surfaces keep independent images through nesting, dragging and
   );
   const plugin = {
     coveredSnapshot: capture,
+    getVerticalBarsGeometry: async ({ ids }: { ids: string[] }) => {
+      if (geometryMode === 'reject') throw new Error('alignment unavailable');
+      return { items: geometryMode === 'empty' ? {} : Object.fromEntries(ids.map((id) => [id, { x: 10, y: 10, width: 80, height: 44 }])) };
+    },
     addListener: async (name: string) => {
       const id = Symbol();
       if (name === 'snapshotInteraction') listeners.add(id);
@@ -1162,10 +1169,14 @@ test('three modal surfaces keep independent images through nesting, dragging and
     }
     // Moving the top surface does not replace the covered surfaces' images.
     const top = surfaces[surfaces.length - 1];
+    const retainedIDs = updates.at(-1)!.controls.map((control) => control.id);
     top.modal.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     top.move();
     await vi.waitFor(() => expect(movingModal(document)).toBe(top.modal));
     await vi.waitFor(() => expect(top.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true));
+    await vi.waitFor(() => expect(updates.at(-1)?.imageSourceIds).toEqual(retainedIDs));
+    expect(updates.at(-1)!.controls.map((control) => control.id)).toEqual(retainedIDs);
+    expect(updates.at(-1)!.verticalBarFrame).toBeUndefined();
     for (const covered of surfaces.slice(0, -1)) expect(covered.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
     // Returning to the pinned rail must restore Native before the gesture ends.
     // The observer's boundary transitions are covered separately; keep raw motion active here.
@@ -1181,6 +1192,7 @@ test('three modal surfaces keep independent images through nesting, dragging and
     expect(movingModal(document)).toBe(top.modal);
     expect(top.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
     expect(top.source.hasAttribute('data-native-ui-projected')).toBe(true);
+    expect(runtime.getStatus().state).toBe('native');
     requestedPixels.mockRestore();
     top.modal.dispatchEvent(new Event('pointerup', { bubbles: true }));
     while (surfaces.length > 1) {
@@ -1204,7 +1216,7 @@ test('three modal surfaces keep independent images through nesting, dragging and
       await vi.waitFor(() => expect(exposed.hasAttribute('data-native-ui-snapshot-visible')).toBe(false));
       expect(exposed.hasAttribute('data-native-ui-projected')).toBe(true);
       for (const covered of surfaces.slice(0, -1)) expect(covered.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
-      expect(listeners.size).toBe(surfaces.length + 1);
+      await vi.waitFor(() => expect(listeners.size).toBe(surfaces.length + 1));
     }
     // Removal without a dismissal event must not leak a surface or listener.
     first.modal.remove();

@@ -4,6 +4,7 @@ import SwiftUI
 import WebKit
 
 public final class NativeUIController: NSObject, UITabBarDelegate {
+    private var imagePixelRestorations: [() -> Void] = []
     private let environment: NativeUIEnvironment
     public init(environment: NativeUIEnvironment) {
         self.environment = environment
@@ -245,6 +246,8 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
     }
 
     private func resetCoveredSnapshots() {
+        imagePixelRestorations.forEach { $0() }
+        imagePixelRestorations.removeAll()
         coveredSnapshots.reset()
     }
 
@@ -315,7 +318,9 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
                   webView.bounds.width > 0 else { call.resolve(["items": [:]]); return }
             let scale = width / webView.bounds.width
             let ids = Set(call.getArray("ids", String.self) ?? [])
-            let measured = NativeUIVerticalBarsGeometry.measure(in: rail.view, relativeTo: webView, ids: ids)
+            let measured = self.imagePixelRestorations.isEmpty
+                ? NativeUIVerticalBarsGeometry.measure(in: rail.view, relativeTo: webView, ids: ids)
+                : NativeUIVerticalBarsGeometry.resolve(in: rail.view, relativeTo: webView, ids: ids, controls: self.snapshotControls.filter { $0.placement == .verticalBars })
             var items = measured.mapValues { frame in
                 ["x": frame.minX * scale, "y": frame.minY * scale,
                  "width": frame.width * scale, "height": frame.height * scale]
@@ -459,6 +464,13 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
             guard let snapshot = try? call.decode(NativeUISnapshot.self), snapshot.isValid else {
                 call.reject("Invalid control snapshot"); return
             }
+            let imageIDs = Set(snapshot.imageSourceIds ?? [])
+            let railIDs = Set(snapshot.controls.filter { $0.placement == .verticalBars }.map(\.id))
+            // A rail is one renderer: any image-owned member leases all of its pixels.
+            let imageOwnsRail = !railIDs.isDisjoint(with: imageIDs)
+            let imageHandoff = !self.imagePixelRestorations.isEmpty || !imageIDs.isEmpty
+            self.imagePixelRestorations.forEach { $0() }
+            self.imagePixelRestorations.removeAll()
             self.coveredSnapshots.restoreControls()
             if snapshot.coveredSnapshotToken == nil && self.coveredSnapshots.covering {
                 _ = self.coveredSnapshots.restore(in: webView)
@@ -466,6 +478,12 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
             defer {
                 if snapshot.coveredSnapshotToken == nil {
                     self.coveredSnapshots.finishCovering()
+                }
+                if imageOwnsRail, let rail = self.verticalBars {
+                    self.imagePixelRestorations.append(NativeUICoveredSnapshots.concealPixels(in: rail.view))
+                }
+                for id in imageIDs {
+                    if let view = self.controls[id] { self.imagePixelRestorations.append(NativeUICoveredSnapshots.concealPixels(in: view)) }
                 }
             }
             if self.toolbarTransition?.id != snapshot.toolbarTransition?.id {
@@ -534,7 +552,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
                 rail.attach(to: owner, in: owner.view)
                 if let frame = snapshot.verticalBarFrame {
                     rail.view.frame = webView.convert(frame.rect.applying(CGAffineTransform(scaleX: scale, y: scale)), to: owner.view)
-                } else {
+                } else if !imageOwnsRail || enteringVerticalBars {
                     rail.view.frame = owner.view.bounds
                 }
                 rail.view.isHidden = false
@@ -560,7 +578,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
             // Publish toolbar, tabs and accessory together so the hosting tree receives
             // one animation transaction. The shell owns only the initial crossfade.
             self.verticalBars?.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right",
-                                     animated: !enteringVerticalBars && snapshot.modalAnimation == nil && !self.coveredSnapshots.covering, accessory: accessoryContent, navigation: snapshot.verticalBarNavigation ?? [], navigationPhase: snapshot.verticalBarNavigationPhase)
+                                     animated: !imageHandoff && !enteringVerticalBars && snapshot.modalAnimation == nil && !self.coveredSnapshots.covering, accessory: accessoryContent, navigation: snapshot.verticalBarNavigation ?? [], navigationPhase: snapshot.verticalBarNavigationPhase)
             self.verticalBars?.view.isUserInteractionEnabled = snapshot.modalAnimation == nil
             if let layer = self.verticalBars?.view.layer {
                 if let motion = snapshot.modalAnimation {

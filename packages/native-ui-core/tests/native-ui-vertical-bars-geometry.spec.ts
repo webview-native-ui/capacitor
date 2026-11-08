@@ -76,7 +76,7 @@ for (const [themed, border] of [
   });
 }
 
-test('Modal image frame keeps measured Native dimensions and corner radius', () => {
+test('Modal image frame keeps measured Native dimensions', () => {
   const modal = document.createElement('ion-modal');
   const source = document.createElement('ion-button');
   const target = document.createElement('ion-button');
@@ -87,5 +87,4 @@ test('Modal image frame keeps measured Native dimensions and corner radius', () 
   alignVerticalBarClone(target, source, modal);
   expect(target.style.width).toBe('60px');
   expect(target.style.height).toBe('40px');
-  expect(target.style.getPropertyValue('--native-ui-modal-rail-image-radius')).toBe('7px');
 });

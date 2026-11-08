@@ -85,8 +85,6 @@ export const alignVerticalBarClone = (clone: HTMLElement, source: Element, paren
     margin: '0',
     boxSizing: 'border-box',
   });
-  if (source.closest('ion-modal'))
-    clone.style.setProperty('--native-ui-modal-rail-image-radius', `${frame.cornerRadius ?? Math.min(frame.width, frame.height) / 2}px`);
 };
 
 export const alignVerticalTabBar = (

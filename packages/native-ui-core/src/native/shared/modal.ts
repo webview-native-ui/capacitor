@@ -191,15 +191,6 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
     }
     const topPosition = top && app && appStyle ? railPosition(top, app, appStyle) : 'unknown';
     const pinned = topPosition === 'pinned';
-    for (const modal of modals) {
-      const position =
-        modal === top
-          ? topPosition
-          : app && appStyle && modal.classList.contains(modalRailClass)
-            ? railPosition(modal, app, appStyle)
-            : 'unknown';
-      modal.toggleAttribute('data-native-ui-modal-rail-clip', modal.classList.contains(modalRailClass) && position === 'below');
-    }
     // Non-interactive transitions use images regardless of the boundary. During
     // interaction, only dragging/snapping below the boundary needs image following.
     // This is a pixel request; Native ownership and image readiness are independent.
@@ -330,7 +321,6 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
     doc.querySelectorAll<HTMLElement>(`.${modalRailClass}`).forEach((modal) => {
       modal.classList.remove(modalRailClass);
       modal.style.removeProperty(toolbarTop);
-      modal.removeAttribute('data-native-ui-modal-rail-clip');
     });
   };
 };

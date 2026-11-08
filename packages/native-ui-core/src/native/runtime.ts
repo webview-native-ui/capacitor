@@ -45,6 +45,7 @@ import { createSearchSupport } from './components/searchable-tabs.js';
 import type {
   NativeUIActivation,
   NativeUISnapshot,
+  Frame,
   NativeUIRuntimeHandle,
   NativeUIRuntimeOptions,
   NativeUIPlugin,
@@ -223,13 +224,6 @@ export const createRuntime = async (
     .ion-cloned-element:is([${verticalBarsMarker}], [${verticalBarsMemberMarker}]):not([${fadeMarker}]):not([data-native-ui-snapshot-visible]),
     .ion-cloned-element:is([data-native-ui-snapshot-source], [data-native-ui-proxy-prepared]):not([data-native-ui-snapshot-visible]) { opacity: 0 !important; content-visibility: hidden !important; }
     [${marker}], [${marker}] *, [${navigationMarker}], [${navigationMarker}] * { pointer-events: none !important; }
-    /* Clip snapshot padding only for the Modal rail below its pinned boundary. */
-    ion-modal.ios-theme-vertical-bars-modal[data-native-ui-modal-rail-clip] > [slot="native-ui-vertical-bars"][data-native-ui-snapshot-visible],
-    ion-modal.ios-theme-vertical-bars-modal[data-native-ui-modal-rail-clip] > [slot="native-ui-vertical-bars"] [data-native-ui-snapshot-visible] {
-      overflow: visible !important;
-      /* Preserve the glass rim outside the measured control bounds. */
-      clip-path: inset(-1px round calc(var(--native-ui-modal-rail-image-radius, 999px) + 1px)) !important;
-    }
     /* The theme's fixed Back clone must not reintroduce a Web button while
        navigation keeps its source under native ownership. */
     :is(ion-nav, ion-router-outlet):has(.ion-page:not(.ion-page-hidden) ion-back-button:is([${marker}], [${navigationMarker}]))
@@ -415,25 +409,34 @@ export const createRuntime = async (
     const result = readSource(element);
     return result.kind === 'ready' ? result.candidate : undefined;
   };
+  const retainedNativeInput = (element: HTMLElement): Candidate | undefined => {
+    const owner = [...nativeOwners.values()].find((owner) => owner.input.element === element);
+    const input = owner && owner.binding === JSON.stringify(binding(owner.input)) ? owner.input : undefined;
+    return input &&
+      candidateSources(input).every((source) => nativeOwners.has(source) && sourceContextActive(source) && nativeProjectionAllowed(source))
+      ? input
+      : undefined;
+  };
+  // Context/policy retain the renderer; optional snapshot availability never does.
+  const retainsModalRenderer = (element: HTMLElement): boolean => {
+    const modal = element.closest('ion-modal');
+    if (!modal || modal !== topModal(doc) || !imagesFor(modal)?.webSurface || modalRequestedPixels(modal) !== 'image') return false;
+    const input = nativeOwners.get(element)?.input;
+    return !!retainedNativeInput(input?.element ?? element);
+  };
+  const sourceSelectionEnded = (element: HTMLElement) => pageProjection.isDeparted(element, true) && !retainsModalRenderer(element);
   const readSnapshotSource = (element: HTMLElement): Candidate | undefined => {
-    const result = readSource(element);
-    if (result.kind === 'ready' && candidateSources(result.candidate).some(projectionState.imageOwns)) {
-      sourceReads.set(element, 'suppressed');
-      return;
+    const retained = retainedNativeInput(element);
+    if (retained && pageProjection.isDeparted(element, true) && retainsModalRenderer(element)) {
+      sourceReads.set(element, 'deferred');
+      return { ...retained, assets: undefined, icons: [] };
     }
+    let result = readSource(element);
+    if (result.kind === 'ready' && candidateSources(result.candidate).some(projectionState.imageOwns)) result = suppressed;
     sourceReads.set(element, result.kind);
     if (result.kind === 'ready') return result.candidate;
-    if (result.kind === 'deferred') {
-      const owner = [...nativeOwners.values()].find((owner) => owner.input.element === element);
-      const previous = owner && owner.binding === JSON.stringify(binding(owner.input)) ? owner.input : undefined;
-      if (
-        previous &&
-        candidateSources(previous).every(
-          (source) => nativeOwners.has(source) && sourceContextActive(source) && nativeProjectionAllowed(source),
-        )
-      )
-        return { ...previous, assets: undefined, icons: [] };
-    }
+    if (retained && (result.kind === 'deferred' || (result.kind === 'suppressed' && retainsModalRenderer(element))))
+      return { ...retained, assets: undefined, icons: [] };
   };
   const flush = async (transition?: NonNullable<typeof navigation.current>) => {
     if (stopped) return;
@@ -448,7 +451,7 @@ export const createRuntime = async (
   };
   const blocked = (element: HTMLElement) =>
     Array.from(tabActivationPages.keys()).some((page) => page.contains(element)) ||
-    pageProjection.isDeparted(element, true) ||
+    sourceSelectionEnded(element) ||
     (!isVerticalBarsSource(element) &&
       (Array.from(suspended.keys()).some((scopes) => scopes.some((scope) => scope.contains(element))) ||
         Array.from(pages).some((scope) => scope.contains(element)) ||
@@ -549,7 +552,7 @@ export const createRuntime = async (
     const readable = (element: HTMLElement) =>
       inVerticalBarsSurface(element) &&
       !(topModal(doc) && modalPreparing(topModal(doc)!)) &&
-      !pageProjection.isDeparted(element, true) &&
+      !sourceSelectionEnded(element) &&
       (!blocked(element) || (overlayVisible && isVerticalBarsSource(element)));
     const measurableSources = new Set([
       ...nativeOwners.keys(),
@@ -746,7 +749,7 @@ export const createRuntime = async (
         const retained = acknowledged.filter(
           (candidate) =>
             candidate.element.isConnected &&
-            !pageProjection.isDeparted(candidate.element, true) &&
+            !sourceSelectionEnded(candidate.element) &&
             !candidate.element.closest('.ion-page-hidden') &&
             !Array.from(tabActivationPages.keys()).some((page) => page.contains(candidate.element)),
         );
@@ -756,7 +759,7 @@ export const createRuntime = async (
               (candidate) =>
                 candidate.control.search?.available &&
                 candidateSources(candidate).some(
-                  (source) => !source.isConnected || pageProjection.isDeparted(source, true) || !!source.closest('.ion-page-hidden'),
+                  (source) => !source.isConnected || sourceSelectionEnded(source) || !!source.closest('.ion-page-hidden'),
                 ),
             )
             .map((candidate) => candidate.control.id),
@@ -776,8 +779,10 @@ export const createRuntime = async (
           }
           const retainedSources = new Set(retained.flatMap(candidateSources));
           for (const element of nativeOwners.keys()) if (!retainedSources.has(element)) releaseUnselectedSource(element, true);
+          const retainedIDs = new Set(retained.map((candidate) => candidate.control.id));
           const retirement: NativeUISnapshot = {
             ...renderedSnapshot,
+            imageSourceIds: renderedSnapshot.imageSourceIds?.filter((id) => retainedIDs.has(id)),
             revision: ++revision,
             transitionDuration: 0,
             toolbarTransition: undefined,
@@ -937,7 +942,24 @@ export const createRuntime = async (
               );
             }))
         : undefined;
+      const returningSurface = modal && imagesFor(modal);
+      const preparingNativeReturn = returningSurface?.webSurface && returningSurface.restoring && !returningSurface.nativeReady;
+      const imageMotion =
+        !!returningSurface?.webSurface &&
+        railCandidates.some(
+          (candidate) => candidate.element.closest('ion-modal') === modal && candidateSources(candidate).some(projectionState.imageOwns),
+        );
+      const imageSourceIds = candidates
+        .filter(
+          (candidate) =>
+            candidate.control.placement === 'vertical-bars' &&
+            candidate.element.closest('ion-modal') === modal &&
+            !!returningSurface?.webSurface &&
+            (preparingNativeReturn || candidateSources(candidate).some(projectionState.imageOwns)),
+        )
+        .map((candidate) => candidate.control.id);
       const data = {
+        ...(imageSourceIds.length ? { imageSourceIds } : {}),
         coveredSnapshotToken: imagesFor()?.token,
         verticalBarNavigationPhase: verticalGesture ? (verticalGesture.pending ? ('tracking' as const) : ('settling' as const)) : undefined,
         verticalBarNavigation: activePage ? verticalNavigation.read(activePage).map(id) : undefined,
@@ -949,8 +971,8 @@ export const createRuntime = async (
                 destination: transition.destination.map((candidate) => candidate.control),
               }
             : undefined,
-        verticalBarFrame,
-        modalAnimation: modal && verticalBarFrame ? modalPresentation(modal)?.animation : undefined,
+        verticalBarFrame: imageMotion ? undefined : verticalBarFrame,
+        modalAnimation: !imageMotion && modal && verticalBarFrame ? modalPresentation(modal)?.animation : undefined,
         viewportWidth: win.innerWidth,
         verticalBarEdge,
         controls: candidates.map((candidate) => candidate.control),
@@ -1106,6 +1128,35 @@ export const createRuntime = async (
       const restoredIDs = accepted
         .filter((candidate) => !result.rejectedControls?.includes(candidate.control.id))
         .map((candidate) => candidate.control.id);
+      if (preparingNativeReturn && returningSurface?.restoring && !returningSurface.nativeReady && plugin.getVerticalBarsGeometry) {
+        let frames: Map<string, Frame> | undefined;
+        try {
+          const items = accepted.flatMap((candidate) => candidate.control.items.map((item) => item.id));
+          const geometry = await bounded(
+            plugin.getVerticalBarsGeometry({ viewportWidth: win.innerWidth, ids: [...items, ...restoredIDs, 'BackButton'] }),
+          );
+          frames = new Map();
+          for (const candidate of accepted) {
+            const control = candidate.control;
+            const direct = geometry.items[control.id];
+            const rects = direct
+              ? [direct]
+              : control.items.map((item) => geometry.items[control.kind === 'back-button' ? 'BackButton' : item.id]);
+            if (!rects.length || rects.some((rect) => !rect || !validVerticalBarFrame(rect))) continue;
+            const x = Math.min(...rects.map((rect) => rect.x));
+            const y = Math.min(...rects.map((rect) => rect.y));
+            frames.set(control.id, {
+              x,
+              y,
+              width: Math.max(...rects.map((rect) => rect.x + rect.width)) - x,
+              height: Math.max(...rects.map((rect) => rect.y + rect.height)) - y,
+            });
+          }
+        } catch {
+          // The renderer update succeeded. Missing alignment is not a Native failure.
+        }
+        returningSurface.prepareNativeReturn(frames, snapshot.revision);
+      }
       projectionSurfaces.updated(snapshot.coveredSnapshotToken, restoredIDs, snapshot.revision);
       if (!updateQueue.dirty && !invalidated) search.settle((element) => Array.from(pages).some((page) => page.contains(element)));
       // Native has acknowledged this rendered snapshot even when a concurrent DOM
@@ -1627,6 +1678,10 @@ export const createRuntime = async (
     lastSequence = event.sequence;
     if (!element || (verticalGesture && owner && isVerticalBarsSource(owner))) return false;
     if (!owner || !inVerticalBarsSurface(owner)) return false;
+    // Retaining the renderer for a Modal image does not retain its interactivity.
+    const modal = owner.closest('ion-modal');
+    if (modal && imagesFor(modal)?.webSurface && (modalRequestedPixels(modal) === 'image' || projectionState.hasImageHandoff(owner)))
+      return false;
     const direct = !blocked(owner) && unprojected(nativeOwners.keys(), () => readEnabledCandidate(owner));
     // Retained pixels are not permission to dispatch an action from stale input.
     const candidate = direct || read(false).find((candidate) => candidate.actions.has(event.id));

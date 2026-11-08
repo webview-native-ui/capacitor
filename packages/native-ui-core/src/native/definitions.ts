@@ -238,6 +238,8 @@ export interface NativeUISnapshot {
   /** Prepared Web image currently covering the inactive root surface. */
   coveredSnapshotToken?: string;
   revision: number;
+  /** Retain these Native renderers while their pixels are carried by the foreground Modal's DOM images. */
+  imageSourceIds?: string[];
   transitionDuration?: number;
   /** Prepared native toolbar endpoints, controlled by the page animation clock. */
   toolbarTransition?: { id: number; sourceIds: string[]; destination: NativeUIControl[] };
