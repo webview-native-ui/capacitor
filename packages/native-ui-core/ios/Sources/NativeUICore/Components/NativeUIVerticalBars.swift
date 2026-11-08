@@ -49,6 +49,7 @@ final class NativeUIVerticalBarsModel: ObservableObject {
     @Published var tabTint: String?
     @Published var tabs: [Item] = []
     @Published var selection = ""
+    var layoutSurfaces: () -> Void = {}
     var activate: (String) -> Void = { _ in }
     private var pendingSelection: NativeUITabBar.PendingSelection?
     private var pendingExpiryWork: DispatchWorkItem?
@@ -286,7 +287,7 @@ private struct NativeUIVerticalBarsPage: View {
     }
 
     private func page(_ id: String?) -> some View {
-        NativeUIVerticalBarsContent().modifier(NativeUIVerticalBarsToolbarAdapter(model: model, page: id))
+        NativeUIVerticalBarsContent(layoutSurfaces: model.layoutSurfaces).modifier(NativeUIVerticalBarsToolbarAdapter(model: model, page: id))
             .navigationBarBackButtonHidden(true)
             .toolbar {
                 if model.search?.configuration.available == true {
@@ -300,10 +301,14 @@ private struct NativeUIVerticalBarsPage: View {
 // App-local extension views may contain their own, fully visible navigation stacks.
 @available(iOS 26.0, *)
 private struct NativeUIVerticalBarsContent: UIViewControllerRepresentable {
+    let layoutSurfaces: () -> Void
+
     final class Controller: UIViewController {
+        var layoutSurfaces: () -> Void = {}
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
             suppressContentTransition()
+            layoutSurfaces()
         }
         override func viewWillAppear(_ animated: Bool) {
             super.viewWillAppear(animated)
@@ -326,6 +331,7 @@ private struct NativeUIVerticalBarsContent: UIViewControllerRepresentable {
     }
     func makeUIViewController(context: Context) -> Controller {
         let controller = Controller()
+        controller.layoutSurfaces = layoutSurfaces
         controller.view.backgroundColor = .clear
         return controller
     }
@@ -450,10 +456,14 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
         var layoutToolbar: (() -> Void)?
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
-            makeFullSizeSurfacesTransparent(in: view)
+            layoutSurfaces()
             layoutSearch?()
             layoutTabs?()
             layoutToolbar?()
+        }
+
+        func layoutSurfaces() {
+            makeFullSizeSurfacesTransparent(in: view)
         }
 
         private func makeFullSizeSurfacesTransparent(in surface: UIView) {
@@ -565,6 +575,9 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
          changed: @escaping (String, NativeUISearchPhase, String, Bool, Int) -> Int) {
         self.changed = changed
         model.activate = activate
+        // UIKit can materialize tab/navigation backings after the hosting layout.
+        // Reuse the same transparency policy at the inner content layout boundary.
+        model.layoutSurfaces = { [weak self] in self?.controller.layoutSurfaces() }
         container.backgroundColor = .clear
         controller.view.backgroundColor = .clear
         controller.view.isOpaque = false
