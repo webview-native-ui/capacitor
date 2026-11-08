@@ -259,9 +259,11 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
                     self?.notifyListeners("snapshotInteraction", data: ["active": active])
                 }
             }
+            var captureAnchors: [String: CGRect] = [:]
             let measure: (Set<String>, Int) -> [String: CGRect] = { [weak self, weak webView] ids, revision in
                 guard let self, let webView, revision == self.revision,
                       !self.keyboardVisible, self.toolbarTransition == nil else { return [:] }
+                captureAnchors.removeAll()
                 let nodes = self.snapshotControls.filter { ids.contains($0.id) }
                 guard nodes.count == ids.count else { return [:] }
                 let itemIDs = Set(nodes.flatMap { $0.items.map(\.id) } + nodes.filter { $0.extensionContent?.tabBarId != nil }.map(\.id) + ["BackButton", "__tabBar"])
@@ -275,7 +277,10 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
                         if node.kind == .tabBar { frames[node.id] = measured["__tabBar"] }
                         else {
                             let rects = node.items.compactMap { measured[node.kind == .backButton ? "BackButton" : $0.id] }
-                            if rects.count == node.items.count { frames[node.id] = rects.reduce(CGRect.null) { $0.union($1) } }
+                            if rects.count == node.items.count {
+                                frames[node.id] = rects.reduce(CGRect.null) { $0.union($1) }
+                                captureAnchors[node.id] = rects.min(by: { $0.minY < $1.minY })
+                            }
                         }
                     } else if let view = self.controls[node.id], !view.isHidden, view.window != nil {
                         let surfaces: [UIView]
@@ -289,7 +294,10 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
                 if frames.count != ids.count, let rail = self.verticalBars {
                     let railNodes = self.snapshotControls.filter { $0.placement == .verticalBars }
                     let components = NativeUIVerticalBarsGeometry.componentFrames(in: rail.view, relativeTo: webView, controls: railNodes)
-                    for node in nodes where frames[node.id] == nil { frames[node.id] = components[node.id] }
+                    for node in nodes where frames[node.id] == nil {
+                        frames[node.id] = components[node.id]
+                        captureAnchors[node.id] = node.items.compactMap { components[$0.id] }.min(by: { $0.minY < $1.minY })
+                    }
                 }
                 return frames
             }
@@ -307,7 +315,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
                 if !railIDs.isEmpty, ids.isSuperset(of: railIDs), let rail = self.verticalBars { views.append(rail.view) }
                 return views
             }
-            self.coveredSnapshots.handle(call.options, in: webView, frames: measure, views: views, complete: { call.resolve($0) })
+            self.coveredSnapshots.handle(call.options, in: webView, frames: measure, anchorFrames: { captureAnchors }, views: views, complete: { call.resolve($0) })
         }
     }
 
@@ -464,6 +472,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
             guard let snapshot = try? call.decode(NativeUISnapshot.self), snapshot.isValid else {
                 call.reject("Invalid control snapshot"); return
             }
+            self.verticalBars?.alignToolbar(nil, controls: [], relativeTo: webView, scale: 1)
             let imageIDs = Set(snapshot.imageSourceIds ?? [])
             let railIDs = Set(snapshot.controls.filter { $0.placement == .verticalBars }.map(\.id))
             // A rail is one renderer: any image-owned member leases all of its pixels.
@@ -579,6 +588,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
             // one animation transaction. The shell owns only the initial crossfade.
             self.verticalBars?.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right",
                                      animated: !imageHandoff && !enteringVerticalBars && snapshot.modalAnimation == nil && !self.coveredSnapshots.covering, accessory: accessoryContent, navigation: snapshot.verticalBarNavigation ?? [], navigationPhase: snapshot.verticalBarNavigationPhase)
+            self.verticalBars?.alignToolbar(snapshot.verticalBarToolbar, controls: verticalBars, relativeTo: webView, scale: scale)
             self.verticalBars?.view.isUserInteractionEnabled = snapshot.modalAnimation == nil
             if let layer = self.verticalBars?.view.layer {
                 if let motion = snapshot.modalAnimation {

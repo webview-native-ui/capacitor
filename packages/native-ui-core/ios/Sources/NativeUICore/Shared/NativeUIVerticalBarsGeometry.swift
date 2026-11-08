@@ -102,4 +102,36 @@ enum NativeUIVerticalBarsGeometry {
         return result
     }
 
+    /// Align the first actual toolbar item to the Web guide, retaining its device boundary and bottom layout.
+    @discardableResult
+    static func alignToolbar(_ target: NativeUIVerticalBarToolbar, in root: UIView, relativeTo reference: UIView,
+                             controls: [NativeUIControl], scale: CGFloat) -> Bool {
+        guard let parent = root.superview else { return false }
+        let toolbar = controls.filter { [.button, .buttons, .backButton, .menuButton].contains($0.kind) }
+        let ids = Set(toolbar.flatMap { $0.items.map(\.id) } + ["BackButton"])
+        var frames = componentFrames(in: root, relativeTo: reference, controls: controls)
+        if !ids.subtracting(["BackButton"]).isSubset(of: Set(frames.keys)) {
+            for (id, frame) in resolve(in: root, relativeTo: reference, ids: ids, controls: controls) where frames[id] == nil {
+                frames[id] = frame
+            }
+        }
+        let rects = toolbar.flatMap { control in
+            control.items.compactMap { frames[control.kind == .backButton ? "BackButton" : $0.id] }
+        }
+        guard let first = rects.min(by: { $0.midY < $1.midY }) else { return false }
+        let desired = max(CGFloat(target.centerY) * scale, CGFloat(target.minimumTop) * scale + first.height / 2)
+        let delta = desired - first.midY
+        guard abs(delta) > 0.5 / (reference.window?.screen.scale ?? 1) else { return true }
+        let origin = reference.convert(CGPoint.zero, to: parent)
+        let shifted = reference.convert(CGPoint(x: 0, y: delta), to: parent)
+        let y = root.frame.minY + shifted.y - origin.y
+        let bottom = root.frame.maxY
+        guard y >= 0, bottom > y else { return true }
+        UIView.performWithoutAnimation {
+            root.frame = CGRect(x: root.frame.minX, y: y, width: root.frame.width, height: bottom - y)
+            root.layoutIfNeeded()
+        }
+        return true
+    }
+
 }

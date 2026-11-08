@@ -33,6 +33,7 @@ import {
   modalStack,
   modalUsesVerticalBars,
   modalVerticalBarFrame,
+  modalToolbarAlignment,
   modalPreparing,
   modalPresentation,
   modalRequestedPixels,
@@ -926,6 +927,10 @@ export const createRuntime = async (
             : undefined;
       const modal = topModal(doc);
       const verticalBarFrame = modal && !modalPreparing(modal) && modalUsesVerticalBars(modal) ? modalVerticalBarFrame(modal) : undefined;
+      const toolbar = modal && verticalBarFrame && modalToolbarAlignment(modal);
+      const modalRect = toolbar && modal?.shadowRoot?.querySelector('[part~="content"]')?.getBoundingClientRect();
+      const verticalBarToolbar =
+        toolbar && modalRect && verticalBarFrame ? { ...toolbar, centerY: toolbar.centerY + verticalBarFrame.y - modalRect.y } : undefined;
       const transition = navigation.current;
       const railCandidates = candidates.filter((candidate) => candidate.control.placement === 'vertical-bars');
       const activePage = railCandidates.length
@@ -943,7 +948,6 @@ export const createRuntime = async (
             }))
         : undefined;
       const returningSurface = modal && imagesFor(modal);
-      const preparingNativeReturn = returningSurface?.webSurface && returningSurface.restoring && !returningSurface.nativeReady;
       const imageMotion =
         !!returningSurface?.webSurface &&
         railCandidates.some(
@@ -955,7 +959,7 @@ export const createRuntime = async (
             candidate.control.placement === 'vertical-bars' &&
             candidate.element.closest('ion-modal') === modal &&
             !!returningSurface?.webSurface &&
-            (preparingNativeReturn || candidateSources(candidate).some(projectionState.imageOwns)),
+            candidateSources(candidate).some(projectionState.imageOwns),
         )
         .map((candidate) => candidate.control.id);
       const data = {
@@ -972,6 +976,7 @@ export const createRuntime = async (
               }
             : undefined,
         verticalBarFrame: imageMotion ? undefined : verticalBarFrame,
+        verticalBarToolbar: imageMotion ? undefined : verticalBarToolbar,
         modalAnimation: !imageMotion && modal && verticalBarFrame ? modalPresentation(modal)?.animation : undefined,
         viewportWidth: win.innerWidth,
         verticalBarEdge,
@@ -1128,35 +1133,6 @@ export const createRuntime = async (
       const restoredIDs = accepted
         .filter((candidate) => !result.rejectedControls?.includes(candidate.control.id))
         .map((candidate) => candidate.control.id);
-      if (preparingNativeReturn && returningSurface?.restoring && !returningSurface.nativeReady && plugin.getVerticalBarsGeometry) {
-        let frames: Map<string, Frame> | undefined;
-        try {
-          const items = accepted.flatMap((candidate) => candidate.control.items.map((item) => item.id));
-          const geometry = await bounded(
-            plugin.getVerticalBarsGeometry({ viewportWidth: win.innerWidth, ids: [...items, ...restoredIDs, 'BackButton'] }),
-          );
-          frames = new Map();
-          for (const candidate of accepted) {
-            const control = candidate.control;
-            const direct = geometry.items[control.id];
-            const rects = direct
-              ? [direct]
-              : control.items.map((item) => geometry.items[control.kind === 'back-button' ? 'BackButton' : item.id]);
-            if (!rects.length || rects.some((rect) => !rect || !validVerticalBarFrame(rect))) continue;
-            const x = Math.min(...rects.map((rect) => rect.x));
-            const y = Math.min(...rects.map((rect) => rect.y));
-            frames.set(control.id, {
-              x,
-              y,
-              width: Math.max(...rects.map((rect) => rect.x + rect.width)) - x,
-              height: Math.max(...rects.map((rect) => rect.y + rect.height)) - y,
-            });
-          }
-        } catch {
-          // The renderer update succeeded. Missing alignment is not a Native failure.
-        }
-        returningSurface.prepareNativeReturn(frames, snapshot.revision);
-      }
       projectionSurfaces.updated(snapshot.coveredSnapshotToken, restoredIDs, snapshot.revision);
       if (!updateQueue.dirty && !invalidated) search.settle((element) => Array.from(pages).some((page) => page.contains(element)));
       // Native has acknowledged this rendered snapshot even when a concurrent DOM

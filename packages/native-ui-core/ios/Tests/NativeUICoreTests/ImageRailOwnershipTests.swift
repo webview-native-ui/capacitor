@@ -21,12 +21,17 @@ final class ImageRailOwnershipTests: XCTestCase {
                         "accessibilityLabel": id, "disabled": false, "selected": false,
                         "fontSize": 17, "fontWeight": 400, "color": "#000000"]]]
         }
-        func update(_ revision: Int, ids: [String], images: [String], frame: CGRect? = nil) async throws {
+        func update(_ revision: Int, ids: [String], images: [String], frame: CGRect? = nil, toolbarCenter: Double? = nil, expectedFrame: CGRect? = nil) async throws {
             var options: [String: Any] = ["revision": revision, "viewportWidth": 400, "transitionDuration": 0,
                                           "controls": ids.map(control), "imageSourceIds": images]
             if let frame { options["verticalBarFrame"] = ["x": frame.minX, "y": frame.minY, "width": frame.width, "height": frame.height] }
+            if let toolbarCenter { options["verticalBarToolbar"] = ["centerY": toolbarCenter, "minimumTop": 120] }
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 controller.update(NativeUICall(options: options, resolve: { result in
+                    if let expectedFrame {
+                        XCTAssertEqual(owner.view.subviews.first { $0 !== web }?.frame, expectedFrame,
+                                       "The acknowledgement must describe the adjusted layout")
+                    }
                     XCTAssertEqual(result["revision"] as? Int, revision)
                     XCTAssertTrue((result["rejectedControls"] as? [String] ?? []).isEmpty)
                     continuation.resume()
@@ -55,5 +60,23 @@ final class ImageRailOwnershipTests: XCTestCase {
         XCTAssertTrue(rail.isUserInteractionEnabled)
         XCTAssertFalse(rail.accessibilityElementsHidden)
         XCTAssertEqual(rail.frame, owner.view.bounds)
+        // UIKit controls provide measurable geometry even when this test host
+        // does not materialize SwiftUI's toolbar controls.
+        for y in [24, 84] { rail.addSubview(UIButton(frame: CGRect(x: 20, y: y, width: 48, height: 48))) }
+        let alignedFrame = CGRect(x: 0, y: 150, width: 400, height: 650)
+        try await update(5, ids: ["close", "extra"], images: ["close"], frame: movingFrame, toolbarCenter: 198, expectedFrame: alignedFrame)
+        XCTAssertEqual(rail.frame, alignedFrame)
+        // A reveal must apply the measured origin before update acknowledges it.
+        try await update(6, ids: ["close", "extra"], images: [], frame: movingFrame, toolbarCenter: 198, expectedFrame: alignedFrame)
+        XCTAssertEqual(rail.frame, alignedFrame)
+        let pinnedFrame = CGRect(x: 0, y: 170, width: 400, height: 630)
+        try await update(7, ids: ["close", "extra"], images: [], frame: pinnedFrame, toolbarCenter: 198, expectedFrame: alignedFrame)
+        XCTAssertEqual(rail.frame, alignedFrame)
+        // Removing the guide requests the unadjusted frame again.
+        try await update(8, ids: ["close", "extra"], images: [], frame: movingFrame)
+        XCTAssertEqual(rail.frame, movingFrame)
+        let nextFrame = CGRect(x: 0, y: 200, width: 400, height: 600)
+        try await update(9, ids: ["close", "extra"], images: [], frame: nextFrame)
+        XCTAssertEqual(rail.frame, nextFrame)
     }
 }

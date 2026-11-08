@@ -26,11 +26,22 @@ final class VerticalBarsGeometryTests: XCTestCase {
         XCTAssertEqual(geometry["close"], CGRect(x: 20, y: 80, width: 48, height: 48))
         XCTAssertEqual(geometry["extra"], CGRect(x: 20, y: 140, width: 48, height: 48))
         XCTAssertEqual(geometry["actions"], CGRect(x: 20, y: 80, width: 48, height: 108))
+        let bottom = rail.frame.maxY
+        XCTAssertTrue(NativeUIVerticalBarsGeometry.alignToolbar(.init(centerY: 365, minimumTop: 174), in: rail, relativeTo: web, controls: [control], scale: 1))
+        let aligned = NativeUIVerticalBarsGeometry.resolve(in: rail, relativeTo: web, ids: ["close", "extra"], controls: [control])
+        XCTAssertEqual(try XCTUnwrap(aligned["close"]).midY, 365)
+        XCTAssertEqual(try XCTUnwrap(aligned["extra"]).midY, 425)
+        XCTAssertEqual(rail.frame.maxY, bottom)
+        XCTAssertTrue(NativeUIVerticalBarsGeometry.alignToolbar(.init(centerY: 100, minimumTop: 174), in: rail, relativeTo: web, controls: [control], scale: 1))
+        XCTAssertEqual(try XCTUnwrap(NativeUIVerticalBarsGeometry.resolve(in: rail, relativeTo: web, ids: ["close"], controls: [control])["close"]).minY, 174)
         rail.removeFromSuperview()
         XCTAssertTrue(NativeUIVerticalBarsGeometry.resolve(in: rail, relativeTo: web, ids: ["actions"], controls: [control]).isEmpty)
         web.addSubview(rail)
         rail.addSubview(UIButton(frame: CGRect(x: 20, y: 200, width: 48, height: 48)))
         XCTAssertTrue(NativeUIVerticalBarsGeometry.resolve(in: rail, relativeTo: web, ids: ["actions"], controls: [control]).isEmpty,
                       "A count mismatch must not guess which native controls belong to the source")
+        let unchanged = rail.frame
+        XCTAssertFalse(NativeUIVerticalBarsGeometry.alignToolbar(.init(centerY: 365, minimumTop: 174), in: rail, relativeTo: web, controls: [control], scale: 1))
+        XCTAssertEqual(rail.frame, unchanged)
     }
 }

@@ -248,6 +248,8 @@ export interface NativeUISnapshot {
   verticalBarEdge?: 'left' | 'right';
   /** Visible foreground modal bounds; omitted for the full page. */
   verticalBarFrame?: Frame;
+  /** Foreground Web toolbar center and the device-reserved rail top, in viewport pixels. */
+  verticalBarToolbar?: { centerY: number; minimumTop: number };
   modalAnimation?: import('./shared/modal-animation.js').ModalAnimation;
   /** Web-owned page identities, from root through the active rail destination. */
   verticalBarNavigation?: string[];
@@ -284,7 +286,7 @@ export interface NativeUIConnectionState {
 /** @internal Prepared native pixels, served through Capacitor's local resource handler. */
 export interface CoveredSnapshot {
   token: string;
-  parts: (Frame & { ids: string[]; url: string })[];
+  parts: (Frame & { ids: string[]; url: string; anchorBounds?: Frame })[];
 }
 
 export interface NativeUIPlugin {

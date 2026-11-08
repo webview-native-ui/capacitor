@@ -1044,7 +1044,7 @@ test.each([0, 0.25, 0.5])('sheet breakpoint %s keeps dismissal on the acknowledg
   }
 });
 
-test.each(['valid', 'empty', 'reject'] as const)('three Modal surfaces retain Native through geometry=%s', async (geometryMode) => {
+test('three Modal surfaces retain Native with unavailable geometry', async () => {
   for (const key of ['owners', 'visibleOwners', 'preparedOwners'] as const) vi.spyOn(projectionState, key, 'get').mockRestore();
   vi.mocked(projectionState.imageOwns).mockRestore();
   vi.mocked(projectionState.imageVisible).mockRestore();
@@ -1110,10 +1110,7 @@ test.each(['valid', 'empty', 'reject'] as const)('three Modal surfaces retain Na
   );
   const plugin = {
     coveredSnapshot: capture,
-    getVerticalBarsGeometry: async ({ ids }: { ids: string[] }) => {
-      if (geometryMode === 'reject') throw new Error('alignment unavailable');
-      return { items: geometryMode === 'empty' ? {} : Object.fromEntries(ids.map((id) => [id, { x: 10, y: 10, width: 80, height: 44 }])) };
-    },
+    getVerticalBarsGeometry: vi.fn(async () => ({ items: {} })),
     addListener: async (name: string) => {
       const id = Symbol();
       if (name === 'snapshotInteraction') listeners.add(id);

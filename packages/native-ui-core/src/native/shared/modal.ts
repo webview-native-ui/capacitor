@@ -133,7 +133,7 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
     const topChanged = state.top !== top;
     let changed = topChanged;
     state.top = top;
-    const nextBounds = top && !modalPreparing(top) ? JSON.stringify(modalVerticalBarFrame(top)) : '';
+    const nextBounds = top && !modalPreparing(top) ? JSON.stringify([modalVerticalBarFrame(top), modalToolbarAlignment(top)]) : '';
     const moved = bounds !== '' && nextBounds !== '' && bounds !== nextBounds;
     changed ||= bounds !== nextBounds;
     bounds = nextBounds;
@@ -158,6 +158,8 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
     for (const modal of modals) {
       const content = modal.shadowRoot?.querySelector<HTMLElement>('[part~="content"]');
       if (content) wanted.add(content);
+      for (const toolbar of Array.from(modal.querySelectorAll('ion-header ion-toolbar, ion-header ion-title')))
+        if (toolbar.closest('ion-modal') === modal) wanted.add(toolbar);
       // offsetWidth is unaffected by Ionic's presentation transforms.
       const fullWidth = !!content && Math.abs(content.offsetWidth - win.innerWidth) <= 1 && Math.abs(content.offsetLeft) <= 1;
       const overlapsRail =
@@ -335,4 +337,16 @@ export const modalVerticalBarFrame = (modal: Element): Frame | undefined => {
   const y = Math.max(0, rect.top);
   const height = Math.min(win.innerHeight, rect.bottom) - y;
   return height > 0 ? { x: 0, y, width: win.innerWidth, height } : undefined;
+};
+
+/** Shared Web/Native anchor; toolbar placement is independent of the Modal's outer bounds. */
+export const modalToolbarAlignment = (modal: Element): { centerY: number; minimumTop: number } | undefined => {
+  const win = modal.ownerDocument.defaultView!;
+  const app = modal.closest('ion-app');
+  const toolbar = Array.from(modal.querySelectorAll('ion-header ion-toolbar')).find((element) => element.closest('ion-modal') === modal);
+  const title = toolbar?.querySelector('ion-title') ?? toolbar;
+  const rect = title?.getBoundingClientRect();
+  const minimumTop = app && parseFloat(win.getComputedStyle(app).getPropertyValue('--ios-theme-vertical-bars-toolbar-top'));
+  if (!rect || rect.width <= 0 || rect.height <= 0 || minimumTop == null || !Number.isFinite(minimumTop) || minimumTop < 0) return;
+  return { centerY: rect.y + rect.height / 2, minimumTop };
 };

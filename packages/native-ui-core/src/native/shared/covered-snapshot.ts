@@ -1,6 +1,7 @@
-import { createWebProjectionSurface } from '@webview-native-ui/engine';
+import { createWebProjectionSurface, type WebProjectionSource } from '@webview-native-ui/engine';
 import type { NativeUIPlugin } from '../definitions.js';
 import { getProjectionState } from './covered-source.js';
+import { createModalRailLayout } from './vertical-bars-geometry.js';
 
 /** Ionic supplies source ownership and proxy placement; Engine owns image handoff. */
 export const createCoveredSnapshots = async (
@@ -10,8 +11,9 @@ export const createCoveredSnapshots = async (
   callbacks: { wake: () => void; blocked: () => boolean; modal?: HTMLIonModalElement; revision?: () => number },
 ) => {
   const state = getProjectionState(doc);
+  let latestSources: WebProjectionSource[] = [];
   const { modal, wake, blocked, revision } = callbacks;
-  const imageSurface = modal && typeof plugin.getVerticalBarsGeometry === 'function' ? doc.createElement('div') : undefined;
+  const imageSurface = modal ? doc.createElement('div') : undefined;
   if (imageSurface) {
     imageSurface.setAttribute('data-native-ui-projection-node', '');
     imageSurface.style.cssText = 'position:fixed;inset:0;pointer-events:none';
@@ -36,6 +38,12 @@ export const createCoveredSnapshots = async (
       revision,
       transient: !!modal,
       imageSurface,
+      layoutFrame: modal
+        ? createModalRailLayout(modal, (id) => {
+            const source = latestSources.find((source) => source.control.id === id)?.element;
+            return source && state.getTarget(source);
+          })
+        : undefined,
       eligible: (source) =>
         modal
           ? source.element.closest('ion-modal') === modal && source.control.placement === 'vertical-bars'
@@ -52,6 +60,7 @@ export const createCoveredSnapshots = async (
       return !!imageSurface;
     },
     consider(revision: number, sources: Parameters<typeof consider>[1]) {
+      latestSources = sources;
       if (
         imageSurface &&
         !imageSurface.isConnected &&

@@ -313,7 +313,7 @@ test('invalidation during restoration does not strand the next prepared image', 
   f.manager.begin();
   expect(f.manager.token).toBe('image-2');
 });
-test.each([false, true])('another overlay retires only the return copy (acknowledged: %s)', async (acknowledged) => {
+test.each([false, true])('reopening retires only accepted returns (acknowledged: %s)', async (acknowledged) => {
   const f = await fixture();
   f.manager.consider(1, [f.candidate]);
   await drain();
@@ -325,7 +325,10 @@ test.each([false, true])('another overlay retires only the return copy (acknowle
   }
   f.manager.begin();
   expect(f.manager.token).toBe('image-1');
-  expect(f.bridge).toHaveBeenCalledWith({ action: 'restored', token: 'image-1' });
+  if (acknowledged) expect(f.bridge).toHaveBeenCalledWith({ action: 'restored', token: 'image-1' });
+  else expect(f.bridge).not.toHaveBeenCalledWith({ action: 'restored', token: 'image-1' });
+  expect(f.bridge.mock.calls.filter(([request]) => request.action === 'cover')).toHaveLength(2);
+  expect(f.bridge).not.toHaveBeenCalledWith({ action: 'release', token: 'image-1' });
 });
 
 test('a stalled native restoration releases the image lease promptly', async () => {
@@ -466,7 +469,7 @@ test('moving modal keeps the background cache and resumes only after its own con
   foreground.manager.end();
   expect(projectionState.imageOwns(foreground.button)).toBe(false);
   expect(projectionState.imageOwns(background.button)).toBe(true);
-  expect(foreground.bridge.mock.calls.some(([args]) => args.action === 'restore')).toBe(false);
+  expect(foreground.bridge.mock.calls.some(([args]) => args.action === 'restore')).toBe(true);
   expect(clone.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
   foreground.manager.updated(background.manager.token, [], 3);
   foreground.manager.updated(background.manager.token, ['button'], 2);
