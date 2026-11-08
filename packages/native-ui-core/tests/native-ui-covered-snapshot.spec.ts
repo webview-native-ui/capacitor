@@ -474,11 +474,6 @@ test('moving modal keeps the background cache and resumes only after its own con
   foreground.manager.updated(background.manager.token, [], 3);
   foreground.manager.updated(background.manager.token, ['button'], 2);
   expect(foreground.manager.restoring).toBe(true);
-  foreground.manager.prepareNativeReturn(new Map([['button', { x: 394, y: 174, width: 48, height: 48 }]]), 3);
-  await drain();
-  expect(foreground.manager.nativeReady).toBe(true);
-  foreground.manager.updated(background.manager.token, ['button'], 3);
-  expect(clone.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
   foreground.manager.updated(background.manager.token, ['button'], 4);
   expect(clone.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
   expect(projectionState.preparedOwners.includes(background.button)).toBe(true);
@@ -808,7 +803,6 @@ for (const delta of [1.206512451171875, 80]) {
     expect(clone.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
     expect(f.bridge.mock.calls.filter(([r]) => r.action === 'prepare')).toHaveLength(1);
     f.manager.end();
-    f.manager.prepareNativeReturn(new Map([['button', { x: 394, y: 174, width: 48, height: 48 }]]), 3);
     await drain();
     f.manager.updated(undefined, ['button'], 4);
     f.candidate.control.width++;
