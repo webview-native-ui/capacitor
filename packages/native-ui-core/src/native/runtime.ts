@@ -783,6 +783,9 @@ export const createRuntime = async (
           const retainedIDs = new Set(retained.map((candidate) => candidate.control.id));
           const retirement: NativeUISnapshot = {
             ...renderedSnapshot,
+            // Retained controls may outlive the image handoff that covered them.
+            // Reconcile against the current lease, not the previous batch's token.
+            coveredSnapshotToken: imagesFor()?.token,
             imageSourceIds: renderedSnapshot.imageSourceIds?.filter((id) => retainedIDs.has(id)),
             revision: ++revision,
             transitionDuration: 0,
