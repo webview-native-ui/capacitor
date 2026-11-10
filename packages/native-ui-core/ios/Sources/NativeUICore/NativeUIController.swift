@@ -278,13 +278,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
               !keyboardVisible, toolbarTransition == nil else { return .init() }
         let nodes = snapshotControls.filter { ids.contains($0.id) }
         guard !ids.isEmpty, nodes.count == ids.count else { return .init() }
-        let effects = nodes.map { node -> NativeUICaptureEffect in
-            if node.kind == NativeUIButtons.kind { return NativeUIButtons.captureEffect }
-            if node.kind == NativeUIFab.kind { return NativeUIFab.captureEffect }
-            return NativeUIButton.captureEffect(node)
-        }
-        let effect: NativeUICaptureEffect = effects.allSatisfy { $0 == .independent } ? .independent :
-            effects.contains(.backdrop) ? .backdrop : .unknown
+        guard nodes.allSatisfy(NativeUIButton.supportsSettledCapture) else { return .init() }
         // update() acknowledges our explicit, nonanimated layout transaction.
         // UIKit may dirty internal layout flags while drawing without changing
         // that transaction; the Engine separately rechecks actual frames.
@@ -298,7 +292,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
             }
             return true
         }
-        return .init(isSettled: effect == .independent && settled &&
+        return .init(isSettled: settled &&
                      captureState.appearanceSettled(nodes.compactMap { controls[$0.id] }))
     }
 

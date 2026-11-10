@@ -31,10 +31,10 @@ enum NativeUIButton {
     static let kinds: [NativeUIComponent] = [.button, .backButton, .menuButton]
 
     // The component declares the same material choice used by make().
-    static func captureEffect(_ node: NativeUIControl) -> NativeUICaptureEffect {
+    static func supportsSettledCapture(_ node: NativeUIControl) -> Bool {
         guard kinds.contains(node.kind), node.placement == nil, node.scroll == nil, node.items.count == 1,
-              let item = node.items.first else { return .unknown }
-        return item.content.buttonFill == .clear && item.content.buttonStyle != .prominent ? .independent : .backdrop
+              let item = node.items.first else { return false }
+        return item.content.buttonFill == .clear && item.content.buttonStyle != .prominent
     }
 
     @available(iOS 26.0, *)

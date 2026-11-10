@@ -96,12 +96,14 @@ final class NativeUISnapshotTests: XCTestCase {
     @MainActor func testCaptureEffectsAreDeclaredByComponentIncludingOuterGlass() throws {
         let plain = try XCTUnwrap(decode([control(["kind": "ion-button", "items": [item(["buttonFill": "clear"])]])]).controls.first)
         let glass = try XCTUnwrap(decode([control(["kind": "ion-button", "items": [item() ]])]).controls.first)
-        XCTAssertEqual(NativeUIButton.captureEffect(plain), .independent)
-        XCTAssertEqual(NativeUIButton.captureEffect(glass), .backdrop)
+        XCTAssertTrue(NativeUIButton.supportsSettledCapture(plain))
+        XCTAssertFalse(NativeUIButton.supportsSettledCapture(glass))
         let prominent = try XCTUnwrap(decode([control(["items": [item(["buttonFill": "clear", "buttonStyle": "prominent"]) ]])]).controls.first)
-        XCTAssertEqual(NativeUIButton.captureEffect(prominent), .backdrop, "Prominent style uses Glass even with clear fill")
-        XCTAssertEqual(NativeUIButtons.captureEffect, .backdrop, "Plain children do not remove outer Glass")
-        XCTAssertEqual(NativeUIFab.captureEffect, .backdrop)
+        XCTAssertFalse(NativeUIButton.supportsSettledCapture(prominent), "Prominent style uses Glass even with clear fill")
+        for kind in ["ion-buttons", "ion-fab"] {
+            let shared = try XCTUnwrap(decode([control(["kind": kind, "items": [item(["buttonFill": "clear"]) ]])]).controls.first)
+            XCTAssertFalse(NativeUIButton.supportsSettledCapture(shared), "Plain children do not remove outer Glass")
+        }
     }
 
 
