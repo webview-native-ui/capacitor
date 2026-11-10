@@ -6,6 +6,105 @@ import Capacitor
 @testable import NativeUICore
 
 final class NativeUISnapshotTests: XCTestCase {
+    @MainActor func testCaptureInteractionMatrixKeepsOtherOwnersDirty() {
+        let state = NativeUICaptureState()
+        let a = UIView(); let b = UIView()
+        XCTAssertTrue(state.appearanceSettled([b]))
+        state.interacted([a])
+        XCTAssertFalse(state.appearanceSettled([a]))
+        XCTAssertTrue(state.appearanceSettled([b]))
+        state.interacted([b])
+        XCTAssertFalse(state.appearanceSettled([a]), "A different capture cannot prove A's animation finished")
+        XCTAssertFalse(state.appearanceSettled([b]))
+        XCTAssertTrue(state.appearanceSettled([UIView()]), "A genuinely new source has no old interaction")
+        weak var released: UIView?
+        autoreleasepool {
+            let temporary = UIView(); released = temporary; state.interacted([temporary])
+        }
+        XCTAssertNil(released, "Interaction history must not retain retired components")
+    }
+
+    @MainActor func testControllerReadinessTracksActualOwnersAndCaptureAcknowledgements() async throws {
+        guard UIApplication.shared.delegate != nil else { throw XCTSkip("Requires hosted UIApplication") }
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native controls") }
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        let owner = UIViewController(); window.rootViewController = owner; window.makeKeyAndVisible()
+        let web = WKWebView(frame: window.bounds); owner.view.addSubview(web)
+        let controller = NativeUIController(environment: NativeUIEnvironment(webView: { web }, viewController: { owner }, emit: { _, _ in }, hasListeners: { _ in false }, trigger: { _, _ in }))
+        defer { window.isHidden = true }
+        let nodes = [control(["id": "a", "items": [item(["id": "a-action", "label": "A", "buttonFill": "clear", "transitionId": "readiness-a"])]]),
+                     control(["id": "b", "x": 90.0, "items": [item(["id": "b-action", "label": "B", "buttonFill": "clear"])]]),
+                     control(["id": "glass", "x": 160.0, "items": [item(["id": "glass-action", "label": "Glass"]) ]])]
+        let applied: [String: Any] = await withCheckedContinuation { continuation in
+            controller.update(["revision": 1, "viewportWidth": Double(web.bounds.width), "controls": nodes],
+                              resolve: { continuation.resume(returning: $0) }, reject: { continuation.resume(returning: ["error": $0]) })
+        }
+        XCTAssertNil(applied["error"])
+        window.layoutIfNeeded()
+        func buttons(_ view: UIView) -> [UIButton] { (view as? UIButton).map { [$0] } ?? view.subviews.flatMap(buttons) }
+        let button = try XCTUnwrap(buttons(owner.view).first { $0.configuration?.title == "A" })
+        XCTAssertTrue(controller.captureReadiness(["a"], revision: 1).isSettled)
+        XCTAssertFalse(controller.captureReadiness(["glass"], revision: 1).isSettled)
+        let other = try XCTUnwrap(buttons(owner.view).first { $0.configuration?.title == "B" })
+        other.layer.mask = CALayer()
+        XCTAssertFalse(controller.captureReadiness(["b"], revision: 1).isSettled, "Concealed pixels cannot declare readiness")
+        other.layer.mask = nil
+
+        button.sendActions(for: .touchUpInside)
+        XCTAssertFalse(controller.captureReadiness(["a"], revision: 1).isSettled, "UIAction without UITouch must invalidate its owner")
+        XCTAssertTrue(controller.captureReadiness(["b"], revision: 1).isSettled)
+        // A real UIAction must invalidate readiness even without a UITouch.
+        controller.recordCaptureInteraction(button.titleLabel ?? button)
+        XCTAssertFalse(controller.captureReadiness(["a"], revision: 1).isSettled)
+        XCTAssertTrue(controller.captureReadiness(["b"], revision: 1).isSettled)
+        func capture(_ ids: [String]) async -> [String: Any] {
+            await withCheckedContinuation { continuation in
+                controller.coveredSnapshot(["action": "prepare", "ids": ids, "revision": 1, "captureMode": "view", "viewportWidth": Double(web.bounds.width)],
+                                           resolve: { continuation.resume(returning: $0) }, reject: { continuation.resume(returning: ["error": $0]) })
+            }
+        }
+        let pair = await capture(["a", "b"])
+        XCTAssertNotNil(pair["token"])
+        let samePair = await capture(["a", "b"])
+        XCTAssertEqual(samePair["reused"] as? Bool, true, "Partial selection must keep native drawing order")
+        button.superview?.bringSubviewToFront(button)
+        let reorderedPair = await capture(["a", "b"])
+        XCTAssertNotEqual(reorderedPair["reused"] as? Bool, true, "A real native z-order change must recapture")
+        button.superview?.insertSubview(button, at: 0)
+        let bResult = await capture(["b"])
+        XCTAssertNotNil(bResult["token"])
+        XCTAssertFalse(controller.captureReadiness(["a"], revision: 1).isSettled)
+        let aResult = await capture(["a"])
+        XCTAssertNotNil(aResult["token"])
+        XCTAssertFalse(controller.captureReadiness(["a"], revision: 1).isSettled, "Snapshot completion is not animation completion")
+        controller.recordCaptureInteraction(nil)
+        XCTAssertFalse(controller.captureReadiness(["a"], revision: 1).isSettled)
+        XCTAssertFalse(controller.captureReadiness(["b"], revision: 1).isSettled)
+        XCTAssertFalse(controller.captureReadiness(["a"], revision: 0).isSettled)
+        var rebound = nodes
+        rebound[0]["id"] = "renamed"
+        _ = await withCheckedContinuation { continuation in
+            controller.update(["revision": 2, "viewportWidth": Double(web.bounds.width), "controls": rebound],
+                              resolve: { continuation.resume(returning: $0) }, reject: { _ in continuation.resume(returning: [:]) })
+        }
+        window.layoutIfNeeded()
+        XCTAssertTrue(buttons(owner.view).contains { $0 === button }, "The source must actually be reassociated")
+        XCTAssertFalse(controller.captureReadiness(["renamed"], revision: 2).isSettled, "ID reassociation must not forget an unsettled interaction")
+        _ = await withCheckedContinuation { continuation in controller.clear(["revision": 3], resolve: { continuation.resume(returning: $0) }, reject: { _ in continuation.resume(returning: [:]) }) }
+    }
+
+    @MainActor func testCaptureEffectsAreDeclaredByComponentIncludingOuterGlass() throws {
+        let plain = try XCTUnwrap(decode([control(["kind": "ion-button", "items": [item(["buttonFill": "clear"])]])]).controls.first)
+        let glass = try XCTUnwrap(decode([control(["kind": "ion-button", "items": [item() ]])]).controls.first)
+        XCTAssertEqual(NativeUIButton.captureEffect(plain), .independent)
+        XCTAssertEqual(NativeUIButton.captureEffect(glass), .backdrop)
+        let prominent = try XCTUnwrap(decode([control(["items": [item(["buttonFill": "clear", "buttonStyle": "prominent"]) ]])]).controls.first)
+        XCTAssertEqual(NativeUIButton.captureEffect(prominent), .backdrop, "Prominent style uses Glass even with clear fill")
+        XCTAssertEqual(NativeUIButtons.captureEffect, .backdrop, "Plain children do not remove outer Glass")
+        XCTAssertEqual(NativeUIFab.captureEffect, .backdrop)
+    }
+
+
     @MainActor func testProminentButtonStyleDecodesAndResetsTintWhenReused() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
         let rendering = NativeUIControlRendering()
@@ -1598,4 +1697,16 @@ final class NativeUISnapshotTests: XCTestCase {
         XCTAssertFalse(model.focused)
     }
 
+}
+
+private extension NativeUIController {
+    func update(_ options: [String: Any], resolve: @escaping ([String: Any]) -> Void, reject: @escaping (String) -> Void) {
+        update(NativeUICall(options: options, resolve: resolve, reject: reject))
+    }
+    func clear(_ options: [String: Any], resolve: @escaping ([String: Any]) -> Void, reject: @escaping (String) -> Void) {
+        clear(NativeUICall(options: options, resolve: resolve, reject: reject))
+    }
+    func coveredSnapshot(_ options: [String: Any], resolve: @escaping ([String: Any]) -> Void, reject: @escaping (String) -> Void) {
+        coveredSnapshot(NativeUICall(options: options, resolve: resolve, reject: reject))
+    }
 }

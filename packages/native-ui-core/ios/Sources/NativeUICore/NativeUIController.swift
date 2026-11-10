@@ -13,6 +13,9 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
     private func notifyListeners(_ event: String, data: [String: Any]) { environment.emit(event, data) }
     private func hasListeners(_ event: String) -> Bool { environment.hasListeners(event) }
     private let coveredSnapshots = NativeUICoveredSnapshots()
+    private let captureState = NativeUICaptureState()
+    private var captureLayoutRevision: Int?
+    private weak var captureObservationWindow: UIWindow?
     private var snapshotControls: [NativeUIControl] = []
     private var overlays: NativeUIOverlayController?
     private var toolbarTransition: NativeUIToolbarTransition?
@@ -245,20 +248,71 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
         }
     }
 
+    private func observeCaptureInteractions() {
+        guard let window = environment.webView()?.window else { return }
+        if captureObservationWindow !== window {
+            captureState.interacted(Array(controls.values) + (verticalBars.map { [$0.view] } ?? []))
+            captureObservationWindow = window
+        }
+        coveredSnapshots.observe(window, interacted: { [weak self] touched in
+            guard let self else { return }
+            self.recordCaptureInteraction(touched)
+        }) { [weak self] active in
+            self?.notifyListeners("snapshotInteraction", data: ["active": active])
+        }
+    }
+
+    func recordCaptureInteraction(_ touched: UIView?) {
+        let all = Array(controls.values) + (verticalBars.map { [$0.view] } ?? [])
+        guard let touched else { captureState.interacted(all); return }
+        if let rail = verticalBars, touched.isDescendant(of: rail.view) {
+            captureState.interacted([rail.view]); return
+        }
+        let owners = controls.values.filter { touched.isDescendant(of: $0) }
+        captureState.interacted(owners.isEmpty ? all : Array(owners))
+    }
+
+    func captureReadiness(_ ids: Set<String>, revision: Int) -> NativeUICaptureReadiness {
+        guard revision == self.revision, captureLayoutRevision == revision,
+              captureObservationWindow === environment.webView()?.window, environment.webView()?.window != nil,
+              !keyboardVisible, toolbarTransition == nil else { return .init() }
+        let nodes = snapshotControls.filter { ids.contains($0.id) }
+        guard !ids.isEmpty, nodes.count == ids.count else { return .init() }
+        let effects = nodes.map { node -> NativeUICaptureEffect in
+            if node.kind == NativeUIButtons.kind { return NativeUIButtons.captureEffect }
+            if node.kind == NativeUIFab.kind { return NativeUIFab.captureEffect }
+            return NativeUIButton.captureEffect(node)
+        }
+        let effect: NativeUICaptureEffect = effects.allSatisfy { $0 == .independent } ? .independent :
+            effects.contains(.backdrop) ? .backdrop : .unknown
+        // update() acknowledges our explicit, nonanimated layout transaction.
+        // UIKit may dirty internal layout flags while drawing without changing
+        // that transaction; the Engine separately rechecks actual frames.
+        let settled = nodes.allSatisfy { node in
+            guard let button = controls[node.id] as? UIButton, !button.isHighlighted, !button.isTracking,
+                  button.window != nil, button.layer.mask == nil else { return false }
+            var view: UIView? = button
+            while let current = view {
+                if current.isHidden || current.alpha <= 0 || !(current.layer.animationKeys() ?? []).isEmpty { return false }
+                view = current.superview
+            }
+            return true
+        }
+        return .init(isSettled: effect == .independent && settled &&
+                     captureState.appearanceSettled(nodes.compactMap { controls[$0.id] }))
+    }
+
     private func resetCoveredSnapshots() {
         imagePixelRestorations.forEach { $0() }
         imagePixelRestorations.removeAll()
         coveredSnapshots.reset()
+        captureLayoutRevision = nil
     }
 
     public func coveredSnapshot(_ call: NativeUICall) {
         DispatchQueue.main.async { [weak self] in
             guard let self, let webView = self.environment.webView() else { call.reject("WebView unavailable"); return }
-            if call.getString("action") == "prepare", let window = webView.window {
-                self.coveredSnapshots.observe(window) { [weak self] active in
-                    self?.notifyListeners("snapshotInteraction", data: ["active": active])
-                }
-            }
+            self.observeCaptureInteractions()
             var captureAnchors: [String: CGRect] = [:]
             let measure: (Set<String>, Int) -> [String: CGRect] = { [weak self, weak webView] ids, revision in
                 guard let self, let webView, revision == self.revision,
@@ -311,11 +365,13 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
                       ids.isDisjoint(with: railIDs) || ids.isSuperset(of: railIDs) else {
                     return nil
                 }
-                var views = Array(self.controls.filter { ids.contains($0.key) }.values)
+                let selected = Array(self.controls.filter { ids.contains($0.key) }.values)
+                var views = selected
+                if let ordered = self.host?.subviews.filter({ selected.contains($0) }), ordered.count == selected.count { views = ordered }
                 if !railIDs.isEmpty, ids.isSuperset(of: railIDs), let rail = self.verticalBars { views.append(rail.view) }
                 return views
             }
-            self.coveredSnapshots.handle(call.options, in: webView, frames: measure, anchorFrames: { captureAnchors }, views: views, complete: { call.resolve($0) })
+            self.coveredSnapshots.handle(call.options, in: webView, frames: measure, anchorFrames: { captureAnchors }, views: views, readiness: self.captureReadiness, complete: { call.resolve($0) })
         }
     }
 
@@ -378,6 +434,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
             guard let self else { call.resolve(); return }
             let next = call.getInt("revision") ?? 0
             if next >= self.revision {
+                self.captureLayoutRevision = nil
                 self.revision = next
                 self.restoreTopEdge?()
                 self.restoreTopEdge = nil
@@ -522,6 +579,8 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
             }
             let verticalSearchActive = verticalBars.contains { $0.search.map { $0.available && $0.active } ?? false }
             let width = snapshot.viewportWidth
+            self.captureLayoutRevision = nil
+            self.observeCaptureInteractions()
             self.revision = next
             if !pendingVerticalNavigation && snapshots.isEmpty && verticalBars.isEmpty && accessories.isEmpty && (snapshot.toolbarTransition?.destination.isEmpty ?? true) {
                 self.removeControls(duration: duration)
@@ -784,6 +843,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
             }
             self.snapshotControls = snapshot.controls.filter { !rejectedControls.contains($0.id) }
             let complete = {
+                if self.revision == next { self.captureLayoutRevision = next }
                 var result: [String: Any] = ["revision": next, "rejectedSearches": rejectedSearches, "rejectedControls": rejectedControls, "tabBarWidths": tabBarWidths]
                 if let transition = self.toolbarTransition { result["toolbarTransition"] = transition.id }
                 call.resolve(result)
@@ -814,6 +874,12 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
     }
 
     private func activate(_ id: String) {
+        // Keyboard/VoiceOver activation can bypass UITouch delivery.
+        let owners = snapshotControls.filter { $0.id == id || $0.items.contains { $0.id == id } }
+        let sources = owners.compactMap { controls[$0.id] ?? ($0.placement == .verticalBars ? verticalBars?.view : nil) }
+        if sources.isEmpty { recordCaptureInteraction(nil) } else {
+            sources.forEach { recordCaptureInteraction($0) }
+        }
         sequence += 1
         notifyListeners("activate", data: ["id": id, "revision": revision, "sequence": sequence])
 

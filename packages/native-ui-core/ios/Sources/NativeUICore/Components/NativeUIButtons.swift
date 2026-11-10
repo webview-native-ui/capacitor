@@ -1,6 +1,7 @@
 import UIKit
 
 enum NativeUIButtons {
+    static let captureEffect = NativeUICaptureEffect.backdrop
     static let kind = NativeUIComponent.buttons
 
     @available(iOS 26.0, *)

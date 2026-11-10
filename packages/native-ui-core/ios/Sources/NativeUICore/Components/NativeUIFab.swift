@@ -1,6 +1,7 @@
 import UIKit
 
 final class NativeUIFab: UIView {
+    static let captureEffect = NativeUICaptureEffect.backdrop
     static let kind = NativeUIComponent.fab
     var buttons: [String: UIButton] = [:]
     var content: [String: NativeUIItemContent] = [:]
