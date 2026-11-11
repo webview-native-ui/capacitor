@@ -104,7 +104,7 @@ The application owner handles startup and disposal. The device module applies `e
 
 ### Initial layout timing
 
-Run step 3 from your application bootstrap as soon as `ion-app` is mounted; do not wait for a routed page's data requests. `setVerticalBarsLayout()` needs that element to exist and does not save placement supplied before mounting. Keep device reporting in an application-owned service or integration module, separate from routed-page handlers. Keep startup and cleanup with the same application owner, as described in [the framework lifecycle examples](https://webview-native-ui.com/projects/capacitor-native-ui/docs/setup#place-startup-in-your-frameworks-app-root).
+Run step 3 from your application bootstrap as soon as `ion-app` is mounted; do not wait for a routed page's data requests. `setVerticalBarsLayout()` needs that element to exist and does not save placement supplied before mounting. Keep device reporting in an application-owned service or integration module, separate from routed-page handlers. Keep startup and cleanup with the same application owner, as described in [application startup and device layout](device-layout.md).
 
 Native startup, device placement and control rendering are asynchronous. Resolving `enableNativeUI()` gives you the runtime handle, not a guarantee that controls have already been projected. Starting promptly avoids application-added waiting, but the initial Web layout may still be visible before native projection.
 
