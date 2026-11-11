@@ -98,38 +98,40 @@ The adapter keeps the builder's animation targets, including any horizontal back
 
 ### 3. Connect device placement and start the controls
 
-After `ion-app` is mounted, subscribe to placement changes, read the initial placement, and start one runtime. Keep your existing `ion-app` markup; the helper applies or removes the layout classes from device state:
+After `ion-app` is mounted, start one managed Ionic runtime. It subscribes to
+settled Foldable layout and posture, reads the initial state, applies the theme,
+and owns startup/teardown ordering:
 
 ```ts
-import { Foldable, type BarPlacement } from '@erkamyaman/capacitor-foldable';
-import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
-import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
+import { mountIonicNativeUI } from '@rdlabo/capacitor-native-ui/ionic';
 
-const applyPlacement = ({ verticalBarEdge, inset }: BarPlacement) => setVerticalBarsLayout({ edge: verticalBarEdge, inset });
-const listener = await Foldable.addListener('barPlacementChange', applyPlacement);
-applyPlacement(await Foldable.getBarPlacement());
-const rail = await enableNativeUI({ controls: 'verticalOnly' });
+const rail = mountIonicNativeUI({ controls: 'verticalOnly' });
+await rail.ready;
+
+// On application teardown, even if startup is still pending:
+await rail.destroy();
 ```
+
+The handle is available immediately so frameworks can register teardown before
+initialization finishes. Keep existing control selection and navigation options.
+Applications needing layout flags can use `onLayoutChange`; see [managed Ionic
+startup](ionic-lifecycle.md) for the contract and Angular example.
 
 | Device placement                       | Web layout                                                                 |
 | -------------------------------------- | -------------------------------------------------------------------------- |
 | `leading` or `trailing`                | Reserves the reported inset at that logical edge. The helper resolves RTL. |
 | `null`, including the browser fallback | Restores the ordinary layout; no side rail is forced.                      |
 
-When the application owner is disposed, remove its listener and destroy the runtime it owns:
-
-```ts
-await listener.remove();
-await rail.destroy();
-```
-
-If Native UI is already active, keep that runtime and add only the placement subscription. Do not start a second runtime. For shared configuration and application-owned CSS, see [Foldable integration](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/vertical-bars#use-with-capacitor-foldable).
+Do not combine the managed API with a separate `enableNativeUI()` runtime or
+application-owned Foldable subscriptions for the same root. Keep the low-level
+APIs for an existing custom integration; the [resolver recipe](#resolve-device-layout)
+remains available for that use.
 
 ### Initial layout timing
 
 Run step 3 from your application root as soon as `ion-app` is mounted; do not wait for a routed page's data requests. `setVerticalBarsLayout()` needs that element to exist and does not save placement supplied before mounting. Keep startup and cleanup with the same application owner, as described in [the framework lifecycle examples](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/setup#place-startup-in-your-frameworks-app-root).
 
-Native startup, device placement and control rendering are asynchronous. Resolving `enableNativeUI()` gives you the runtime handle, not a guarantee that controls have already been projected. Starting promptly avoids application-added waiting, but the initial Web layout may still be visible before native projection.
+Native startup, device placement and control rendering are asynchronous. Resolving `rail.ready` gives you a started runtime, not a guarantee that controls have already been projected. Starting promptly avoids application-added waiting, but the initial Web layout may still be visible before native projection.
 
 ### 4. Build, sync and run on iPhone Duo
 

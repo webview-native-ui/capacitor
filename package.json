@@ -40,6 +40,10 @@
     "./core": {
       "types": "./dist/esm/core.d.ts",
       "import": "./dist/esm/core.js"
+    },
+    "./ionic": {
+      "types": "./dist/esm/ionic.d.ts",
+      "import": "./dist/esm/ionic.js"
     }
   },
   "files": [
@@ -81,7 +85,9 @@
   },
   "peerDependencies": {
     "@capacitor/core": ">=8.0.0 <9",
-    "@ionic/core": ">=8.8.1 <10"
+    "@ionic/core": ">=8.8.1 <10",
+    "@erkamyaman/capacitor-foldable": "^8.5.1",
+    "@rdlabo/ionic-theme-ios27": "^2.1.3"
   },
   "capacitor": {
     "ios": {
@@ -96,6 +102,12 @@
       "optional": true
     },
     "@capacitor/core": {
+      "optional": true
+    },
+    "@erkamyaman/capacitor-foldable": {
+      "optional": true
+    },
+    "@rdlabo/ionic-theme-ios27": {
       "optional": true
     }
   },
@@ -118,7 +130,9 @@
     "prettier": "^3.6.2",
     "rollup": "^4.53.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.0"
+    "vitest": "^4.0.0",
+    "@erkamyaman/capacitor-foldable": "^8.5.1",
+    "@rdlabo/ionic-theme-ios27": "^2.1.3"
   },
   "unpkg": "./dist/plugin.js",
   "workspaces": [

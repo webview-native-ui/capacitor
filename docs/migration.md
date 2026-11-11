@@ -4,6 +4,36 @@ title: Migration
 
 # Migration
 
+## Optional: use managed Ionic startup
+
+The additive `@rdlabo/capacitor-native-ui/ionic` entry owns the standard Ionic
+root lifecycle and device layout. Existing `enableNativeUI()` consumers remain
+supported. Apps using the standard Foldable/theme integration can replace the
+manual listener registry, placement/posture reads, stale-response guards and
+startup/teardown queue with:
+
+```ts
+import { mountIonicNativeUI } from '@rdlabo/capacitor-native-ui/ionic';
+
+const ui = mountIonicNativeUI({
+  // Keep the existing Native UI options here.
+  ionic: { verticalBars: { popover: true } },
+  onLayoutChange: ({ verticalBars, expandedFold }) => {
+    // Only application-specific state belongs here.
+  },
+});
+void ui.ready.catch(console.error);
+// Register immediately with the same application owner:
+// destroyRef.onDestroy(() => void ui.destroy().catch(console.error));
+```
+
+Remove the old subscriptions and `enableNativeUI()` call together. Keep existing
+CSS and animation configuration; retain intentional application layout overrides.
+The helper reports Web layout flags and is not a native-projection readiness gate.
+Foldable and the iOS 27 theme are optional peers of this entry; Android and Web do
+not load them at runtime. See [managed Ionic startup](ionic-lifecycle.md) for
+installation, failure handling, refresh, custom layout ownership and teardown.
+
 ## Upgrading from 2.1.0
 
 This section covers the same upgrade in both the theme and Native UI guides; following either one is sufficient. Keep existing theme imports, stylesheets and animation setup. Native UI remains optional. If enabled, keep your existing `enableNativeUI()` call, control selection and application-root runtime. The older package-separation migration below does not need to be repeated.

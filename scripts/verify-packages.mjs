@@ -114,7 +114,12 @@ try {
   assert(!manifests.get(nativeName).dependencies['@webview-native-ui/core'], 'Core must ship inside the plugin');
   cpSync(resolve('node_modules/@webview-native-ui/engine'), join(dir, 'node_modules/@webview-native-ui/engine'), { recursive: true });
   // Layout resolution alone must not load Capacitor, Ionic or theme utilities.
-  execFileSync(process.execPath, ['--input-type=module', '-e', `
+  execFileSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
     import assert from 'node:assert/strict';
     import { resolveVerticalBarsLayout } from '@rdlabo/capacitor-native-ui/integration';
     assert.equal(typeof resolveVerticalBarsLayout, 'function');
@@ -130,7 +135,10 @@ try {
     assert.deepEqual(Object.keys(layout).sort(), ['edge','inset','toolbarTop']);
     for (const name of ['@capacitor/core','@ionic/core','@rdlabo/ionic-theme-utils'])
       await assert.rejects(import(name), {code:'ERR_MODULE_NOT_FOUND'});
-  `], {cwd:dir,stdio:'inherit'});
+  `,
+    ],
+    { cwd: dir, stdio: 'inherit' },
+  );
   symlinkSync(resolve('node_modules/@capacitor'), join(dir, 'node_modules/@capacitor'), 'dir');
   execFileSync(
     process.execPath,
@@ -184,6 +192,17 @@ try {
       }
       const listener = await addDynamicColorListener(() => {});
       await listener.remove();
+    }
+    import { mountIonicNativeUI, type IonicDeviceLayoutState } from '@rdlabo/capacitor-native-ui/ionic';
+    function managedIonicContract(root: HTMLElement) {
+      const ui = mountIonicNativeUI({root, onLayoutChange(state: IonicDeviceLayoutState) {
+        const flags: readonly boolean[] = [state.verticalBars, state.expandedFold];
+      }});
+      const ready: Promise<void> = ui.ready;
+      const refresh: Promise<void> = ui.refreshLayout();
+      const stopped: Promise<void> = ui.destroy();
+      // @ts-expect-error Layout notifications have boolean flags.
+      mountIonicNativeUI({onLayoutChange: (state: string) => {}});
     }
     import { resolveVerticalBarsLayout } from '@rdlabo/capacitor-native-ui/integration';
     async function layoutContract() {
@@ -276,6 +295,10 @@ try {
     import assert from 'node:assert/strict';
     import * as native from '@rdlabo/capacitor-native-ui';
     import * as vertical from '@rdlabo/capacitor-native-ui/vertical-bars';
+    import { mountIonicNativeUI } from '@rdlabo/capacitor-native-ui/ionic';
+    assert.equal(typeof mountIonicNativeUI, 'function');
+    for (const name of ['@erkamyaman/capacitor-foldable', '@rdlabo/ionic-theme-ios27'])
+      await assert.rejects(import(name), {code:'ERR_MODULE_NOT_FOUND'});
     assert.equal(typeof native.enableNativeUI, 'function');
     assert.equal(typeof native.getDynamicColorScheme, 'function');
     assert.equal(typeof native.addDynamicColorListener, 'function');

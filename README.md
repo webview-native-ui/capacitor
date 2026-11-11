@@ -4,6 +4,16 @@ Render supported Web controls with UIKit and SwiftUI on iOS while keeping your a
 
 Native UI is opt-in and officially supported starting with 2.0.0. Standard controls on Android, browsers, older iOS, and unsupported controls retain Web presentation. Android supports experimental app-local Compose extensions. Keep your application's styles and layout; the iOS theme is optional.
 
+For Ionic applications using Foldable and the iOS theme, the optional
+[`/ionic` entry](docs/ionic-lifecycle.md) owns device layout and root teardown:
+
+```ts
+import { mountIonicNativeUI } from '@rdlabo/capacitor-native-ui/ionic';
+const ui = mountIonicNativeUI();
+await ui.ready;
+// On application teardown: await ui.destroy();
+```
+
 ## How projection works
 
 A **projection** is another presentation of a Web control. Your application keeps the original DOM element, state and event handlers. The plugin reads supported labels, icons, selected/disabled state and geometry, then associates the rendered control with that source element. It does not convert the page into a native screen or run a second copy of your application.
