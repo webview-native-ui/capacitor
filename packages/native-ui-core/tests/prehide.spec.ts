@@ -17,7 +17,7 @@ test('a departed page is not recaptured before Ionic hides it', async () => {
   document.documentElement.className = '';
   document.body.innerHTML = markup;
   const page = document.querySelector<HTMLElement>('.ion-page')!;
-  const group = document.querySelector<HTMLElement>('ion-buttons')!;
+  const group = document.querySelector<HTMLElement>('ion-menu-button')!;
   const toolbar = document.querySelector<HTMLElement>('ion-toolbar')!;
   const prehide = prehideVerticalBarsToolbarSources(document);
   try {
@@ -44,12 +44,12 @@ test('a departed page is not recaptured before Ionic hides it', async () => {
 
 // Scoped runtimes patch child accessors on upgraded elements (Stencil slots),
 // so a not-yet-hydrated group reports no children; capture must still see them.
-test('captures a group whose child accessors are virtualized', () => {
+test('captures a menu whose parent child accessors are virtualized', () => {
   document.documentElement.className = '';
   document.body.innerHTML = markup;
-  const group = document.querySelector<HTMLElement>('ion-buttons')!;
+  const group = document.querySelector<HTMLElement>('ion-menu-button')!;
   for (const name of ['childNodes', 'children'] as const) {
-    Object.defineProperty(group, name, { configurable: true, get: () => [] });
+    Object.defineProperty(group.parentElement!, name, { configurable: true, get: () => [] });
   }
   const prehide = prehideVerticalBarsToolbarSources(document);
   try {
@@ -66,7 +66,7 @@ test.each(['class', 'data-native-ui'] as const)('shell opt-out via %s can be rem
   document.documentElement.className = '';
   document.body.innerHTML = markup;
   const toolbar = document.querySelector<HTMLElement>('ion-toolbar')!;
-  const group = document.querySelector<HTMLElement>('ion-buttons')!;
+  const group = document.querySelector<HTMLElement>('ion-menu-button')!;
   const value = attribute === 'class' ? 'native-ui-disabled' : 'disabled';
   toolbar.setAttribute(attribute, value);
   const prehide = prehideVerticalBarsToolbarSources(document);
@@ -93,7 +93,7 @@ test.each(['class', 'data-native-ui'] as const)('shell opt-out via %s can be rem
 test('disabling rail projection releases prehidden sources without losing placement', () => {
   document.body.innerHTML = markup;
   let enabled = true;
-  const source = document.querySelector<HTMLElement>('ion-buttons')!;
+  const source = document.querySelector<HTMLElement>('ion-menu-button')!;
   const controller = prehideVerticalBarsToolbarSources(document, () => enabled);
   try {
     expect(source.classList.contains(prehiddenClass)).toBe(true);
@@ -113,14 +113,14 @@ test('disabling rail projection releases prehidden sources without losing placem
 
 test('late horizontal-only placement restores a captured Web search action', async () => {
   document.body.innerHTML = markup;
-  const group = document.querySelector<HTMLElement>('ion-buttons')!;
+  const group = document.querySelector<HTMLElement>('ion-menu-button')!;
   const prehide = prehideVerticalBarsToolbarSources(document);
   try {
     expect(group.classList.contains(prehiddenClass)).toBe(true);
-    group.classList.add('ios-theme-horizontal-only');
+    group.parentElement!.classList.add('ios-theme-horizontal-only');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(group.classList.contains(prehiddenClass)).toBe(false);
-    group.classList.remove('ios-theme-horizontal-only');
+    group.parentElement!.classList.remove('ios-theme-horizontal-only');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(group.classList.contains(prehiddenClass)).toBe(true);
   } finally {
@@ -259,7 +259,7 @@ test.each(['ion-cloned-element', 'data-native-ui-proxy'])('prehide never capture
     app.append(generated);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(clone.outerHTML).toBe(original);
-    expect(document.querySelector('ion-buttons')!.classList.contains(prehiddenClass)).toBe(true);
+    expect(document.querySelector('ion-menu-button')!.classList.contains(prehiddenClass)).toBe(true);
     // Proxy synchronization and unrelated page mutations must not cause recapture.
     window.dispatchEvent(new Event('nativeUIRefresh'));
     await new Promise((resolve) => setTimeout(resolve, 0));

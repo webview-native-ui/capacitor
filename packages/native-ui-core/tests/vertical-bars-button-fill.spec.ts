@@ -239,7 +239,7 @@ test.each([true, false])('native menu action is discovered with grouping %s', (b
       imagePadding: 0,
     });
     assignToolbarTransitionIds(candidates as NonNullable<(typeof candidates)[number]>[]);
-    expect(candidates[0]!.control.transitionId).toContain(buttons ? 'menu-group' : 'menu-action');
+    expect(candidates[0]!.control.transitionId).toContain('menu-action');
   } finally {
     prehide.stop();
   }

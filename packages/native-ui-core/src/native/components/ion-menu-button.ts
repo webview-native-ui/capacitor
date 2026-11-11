@@ -2,10 +2,10 @@ import { horizontalSelected, horizontalToolbarGroup, inVerticalToolbarLayout } f
 import { createCandidate, appendItem } from '../shared/candidate.js';
 import type { Candidate, Identify } from '../shared/candidate.js';
 import type { VerticalControlAreaOptions } from '../definitions.js';
-import { childElements, inFixedToolbar, isVerticalBarsToolbarAction, isVerticalBarsToolbarGroup } from '../shared/dom.js';
+import { inFixedToolbar, isVerticalBarsToolbarAction, isVerticalBarsToolbarGroup } from '../shared/dom.js';
 
 export const tag = 'ion-menu-button';
-// Horizontal menu buttons belong to ion-buttons; vertical actions can opt out of grouping.
+// Menu actions share toolbar placement with ordinary buttons.
 export const selector = tag;
 export const shadowSelector = tag;
 
@@ -16,23 +16,16 @@ export const append = (candidate: Candidate, button: HTMLIonMenuButtonElement, i
 };
 
 export const read = (group: HTMLElement, id: Identify, options: VerticalControlAreaOptions = {}): Candidate | undefined => {
-  if (group.matches(tag)) {
-    if (!inFixedToolbar(group)) return;
-    if (inVerticalToolbarLayout(group)) {
-      if (!isVerticalBarsToolbarAction(group)) return;
-      if (group.parentElement && isVerticalBarsToolbarGroup(group.parentElement)) return;
-    } else {
-      if (!horizontalSelected(group, options) || !group.parentElement?.matches('ion-buttons')) return;
-      if (horizontalToolbarGroup(group.parentElement, options)) return;
-    }
-    const candidate = createCandidate(group, tag, id, options);
-    return append(candidate, group as HTMLIonMenuButtonElement, id) ? candidate : undefined;
+  if (!inFixedToolbar(group)) return;
+  if (inVerticalToolbarLayout(group)) {
+    if (!isVerticalBarsToolbarAction(group)) return;
+    if (group.parentElement && isVerticalBarsToolbarGroup(group.parentElement)) return;
+  } else {
+    if (!horizontalSelected(group, options)) return;
+    if (group.parentElement && horizontalToolbarGroup(group.parentElement, options)) return;
   }
-  const children = group.matches('ion-buttons') ? childElements(group) : [];
-  if (!inFixedToolbar(group) || children.length !== 1) return;
-  const button = children[0];
-  if (!button?.matches(`${tag}${group.closest('ion-app.ios-theme-vertical-bars') ? '' : '.ios'}`)) return;
-  const candidate = createCandidate(button, tag, id, options);
-  candidate.transitionOwner = group;
-  return append(candidate, button as HTMLIonMenuButtonElement, id) ? candidate : undefined;
+  const candidate = createCandidate(group, tag, id, options);
+  if (!append(candidate, group as HTMLIonMenuButtonElement, id)) return;
+  if (!inVerticalToolbarLayout(group)) candidate.control.items[0].buttonFill = 'clear';
+  return candidate;
 };

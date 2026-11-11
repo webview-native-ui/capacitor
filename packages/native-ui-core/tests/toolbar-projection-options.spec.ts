@@ -1,3 +1,4 @@
+import { assignToolbarTransitionIds } from '../src/native/shared/transition-identity';
 import { afterEach, expect, test } from 'vitest';
 import { readCandidate, selector } from '../src/native/components';
 import { prehideVerticalBarsToolbarSources } from '../src/native/prehide';
@@ -197,3 +198,32 @@ for (const tag of ['img', 'canvas']) {
     expect(candidates(options)).not.toContain('group');
   });
 }
+
+test.each([true, false])('single toolbar actions keep Ionic button semantics with grouping=%s', (buttonGroup) => {
+  const results = ['ion-button', 'ion-menu-button'].map((tag) => {
+    mount();
+    const group = document.querySelector<HTMLElement>('#group')!;
+    document.querySelector('ion-back-button')!.remove();
+    group.setAttribute('data-transition-id', 'container');
+    group.innerHTML = `<${tag} class="ios button-clear" id="action" data-transition-id="action">Menu</${tag}>`;
+    const action = group.firstElementChild as HTMLElement & { type: string; fill?: string };
+    action.type = 'button';
+    if (tag === 'ion-button') action.fill = 'clear';
+    action.style.cssText = 'display:block;visibility:visible;opacity:1;transform:none';
+    action.getBoundingClientRect = () => ({ x: 8, y: 2, width: 32, height: 40, top: 2, left: 8, right: 40, bottom: 42 }) as DOMRect;
+    (action.shadowRoot ?? action.attachShadow({ mode: 'open' })).innerHTML =
+      '<button part="native" style="padding-inline-start:11px;padding-inline-end:7px">Menu</button>';
+    const found = Array.from(document.querySelectorAll<HTMLElement>(selector))
+      .map((element) => readCandidate(element, (source) => source.id, { controls: { buttonGroup, button: true } }))
+      .filter((candidate) => !!candidate);
+    expect(found).toHaveLength(1);
+    const candidate = found[0]!;
+    assignToolbarTransitionIds([candidate]);
+    expect(candidate.element).toBe(action);
+    expect(candidate.actions.get(candidate.control.items[0].id)).toBe(action);
+    expect(candidate.control.items[0].buttonFill).toBe('clear');
+    const { kind: _kind, ...control } = candidate.control;
+    return control;
+  });
+  expect(results[0]).toEqual(results[1]);
+});

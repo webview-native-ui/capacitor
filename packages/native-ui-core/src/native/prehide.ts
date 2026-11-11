@@ -104,7 +104,7 @@ export const prehideVerticalBarsToolbarSources = (
           (localPlacement(element) ?? toolbarOptions(options, true).buttonGroup) &&
           eligible(element) &&
           actions.length === children.length &&
-          (actions.length > 1 || (actions.length === 1 && actions[0].matches('ion-menu-button')));
+          actions.length > 1;
         const freshGroup = !owned.has(element);
         place(element, group);
         children.forEach((child) => {

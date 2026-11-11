@@ -33,7 +33,7 @@ export const horizontalToolbarGroup = (element: HTMLElement, options: VerticalCo
     return false;
   const children = childElements(element);
   return (
-    children.length > 0 &&
+    children.length > 1 &&
     children.every(
       (child) =>
         horizontalSelected(child, options) &&
