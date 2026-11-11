@@ -24,6 +24,10 @@ The plugin renders supported Ionic and HTML controls natively on iOS. Your appli
 | Ionic with an existing Web theme     | [Existing-theme setup](docs/ionic-vertical-bars.md) |
 | HTML without Ionic                   | [HTML setup](docs/framework-independent.md)         |
 
+#### How projection works
+
+Native UI presents the original Web control natively while retaining its state and handlers. See [supported controls and projection behavior](docs/native-ui.md).
+
 ### 2. Use Dynamic Color
 
 Read Android’s device palette and apply it through your theme. Use the [Dynamic Color guide](docs/dynamic-colors.md) for this feature on its own, appearance preferences and color mapping.
@@ -99,18 +103,3 @@ Add `https://github.com/webview-native-ui/capacitor-plugin.git` in Xcode and sel
 Capacitor apps continue to use the `RdlaboCapacitorNativeUi` product and `import NativeUIPlugin`. That module re-exports Core, so existing `NativeUI.register` calls keep using the same registration state as the adapter. The root manifest owns both targets; there is no separate nested Swift package.
 
 CocoaPods continues to compile the adapter and shared sources into the existing plugin pod. This change does not publish a standalone Core pod or implement a Cordova adapter.
-
-## Android dynamic colors
-
-Read Android 12+ Material You colors with `getDynamicColorScheme()` and observe
-resume/configuration notifications with `addDynamicColorListener()`. Import both
-from `@rdlabo/capacitor-native-ui`. Dynamic colors are a supported, opt-in API,
-independent of Native UI projection and experimental app-local extensions.
-
-The plugin returns light and dark schemes without changing the Activity theme or
-requesting wallpaper permissions. Other platforms report `available: false`.
-The plugin does not apply CSS; Ionic applications can use
-`enableDynamicColors` from `@rdlabo/ionic-theme-md3/dynamic-colors`.
-
-See [Android dynamic colors](docs/dynamic-colors.md) for installation, API contracts,
-change notifications, cleanup, and Ionic integration.
