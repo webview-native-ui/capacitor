@@ -2,7 +2,7 @@
 
 Render supported Web controls with UIKit and SwiftUI on iOS while keeping your application state, routing, and handlers in the WebView. Use existing Ionic markup or explicit HTML buttons; custom SwiftUI or Android Compose content can be added through experimental app-local extensions.
 
-Native UI is opt-in and officially supported starting with 2.0.0. Standard controls on Android, browsers, older iOS, and unsupported controls retain Web presentation. Android supports experimental app-local Compose extensions. Keep your application's styles and layout; the iOS theme is optional.
+Native UI is opt-in. Standard controls on Android, browsers, older iOS, and unsupported controls retain Web presentation. Android supports experimental app-local Compose extensions. Keep your application's styles and layout; the iOS theme is optional.
 
 ## Install from npm
 
@@ -20,7 +20,7 @@ import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 const shell = await enableNativeUI();
 ```
 
-**Vertical Bars is enabled by default**, together with ordinary controls. Connect the standard device-layout service; supported devices choose rail placement and other devices retain Web layout. Do not start a separate rail runtime or copy low-level renderer/navigation code into page components.
+**Vertical Bars is enabled by default**, together with ordinary controls. Connect the standard device-layout service; supported devices choose rail placement and other devices retain Web layout.
 
 Follow [Ionic setup](docs/setup.md) for the complete stylesheet, bootstrap, device service and native build steps. Keep another Web theme with [the existing-theme setup](docs/ionic-vertical-bars.md), or use [HTML setup](docs/framework-independent.md) without Ionic. Native UI does not own application state, routing or theme selection. The application owner destroys its handle when disposed.
 

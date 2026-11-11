@@ -239,3 +239,23 @@ Open the WebView developer console and filter for `[Native UI]`. Diagnostics inc
 The standalone `enableVerticalControlArea()` defaults selection to `'verticalOnly'`. Its `setPlacement()` helper is a deprecated Web CSS adapter; use the theme's `setVerticalBarsLayout({ edge, inset })` for Web layout. Native availability comes from the plugin's device metrics.
 
 See [upgrading from 1.2.1](https://webview-native-ui.com/projects/capacitor-native-ui/docs/migration) for package separation, removed options and changed partial-control defaults.
+
+## Native project setup
+
+SwiftPM resolves Engine automatically. For an existing CocoaPods app, install the Engine version required by your installed Native UI package:
+
+```sh
+npm install "@webview-native-ui/engine@$(node -p "require('./node_modules/@rdlabo/capacitor-native-ui/package.json').dependencies['@webview-native-ui/engine']")"
+```
+
+Add Engine to the existing application target in `ios/App/Podfile`, outside the generated `def capacitor_pods` block:
+
+```ruby
+target 'App' do
+  capacitor_pods
+  pod 'WebViewNativeUIEngine', :path => '../../node_modules/@webview-native-ui/engine'
+  # Keep your other application pods here.
+end
+```
+
+Adjust the path for your project layout and repeat version alignment when upgrading Native UI. This is CocoaPods compatibility setup, not application UI logic.

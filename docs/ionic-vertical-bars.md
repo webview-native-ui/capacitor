@@ -98,77 +98,9 @@ The adapter keeps the builder's animation targets, including any horizontal back
 
 ### 3. Connect device placement and start the controls
 
-Keep device reporting in an application-owned service, separate from routed-page components. The service resolves reported geometry and passes it to the theme; Native UI owns projection independently. For Angular, create `src/app/vertical-bars-layout.service.ts`:
+Use [application startup and device layout](device-layout.md) to start the default `enableNativeUI()` runtime and connect Foldable's initial layout and `layoutChange` events. Apply the stylesheet and Ionic animation from steps 1 and 2 as this application's theme configuration.
 
-```ts
-import { DestroyRef, Injectable, inject } from '@angular/core';
-import { Capacitor } from '@capacitor/core';
-import { Foldable } from '@erkamyaman/capacitor-foldable';
-import { resolveVerticalBarsLayout } from '@rdlabo/capacitor-native-ui/integration';
-import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
-
-@Injectable({ providedIn: 'root' })
-export class VerticalBarsLayoutService {
-  readonly #destroyRef = inject(DestroyRef);
-
-  async initialize(): Promise<void> {
-    if (Capacitor.getPlatform() !== 'ios' || this.#destroyRef.destroyed) return;
-    const listener = await Foldable.addListener('layoutChange', () => {
-      void this.#applyLayout().catch((error: unknown) => {
-        console.error('Vertical Bars layout refresh failed', error);
-      });
-    });
-    if (this.#destroyRef.destroyed) {
-      await listener.remove();
-      return;
-    }
-    this.#destroyRef.onDestroy(() => {
-      void listener.remove().catch((error: unknown) => {
-        console.error('Vertical Bars listener cleanup failed', error);
-      });
-    });
-    await this.#applyLayout();
-  }
-
-  async #applyLayout(): Promise<void> {
-    const layout = await resolveVerticalBarsLayout(Foldable);
-    if (!this.#destroyRef.destroyed) setVerticalBarsLayout(layout);
-  }
-}
-```
-
-Initialize it once from your existing `src/main.ts` bootstrap, after `ion-app` mounts. Keep the stylesheet and Ionic configuration from steps 1 and 2. Start the default Native UI runtime and device service from the application bootstrap:
-
-```ts
-import { bootstrapApplication } from '@angular/platform-browser';
-import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
-import { AppComponent } from './app/app.component';
-import { appConfig } from './app/app.config';
-import { VerticalBarsLayoutService } from './app/vertical-bars-layout.service';
-
-void bootstrapApplication(AppComponent, appConfig)
-  .then(async (app) => {
-    const shell = await enableNativeUI();
-    if (app.destroyed) {
-      await shell.destroy();
-      return;
-    }
-    app.onDestroy(() => {
-      void shell.destroy().catch((error: unknown) => console.error('Native UI cleanup failed', error));
-    });
-    await app.injector.get(VerticalBarsLayoutService).initialize();
-  })
-  .catch((error: unknown) => console.error('Application startup failed', error));
-```
-
-Merge this into your existing bootstrap chain; do not bootstrap a second application or start a second Native UI runtime. Initial subscription/layout errors reach the bootstrap error handler. The service removes its device listener when the application is destroyed, and ignores a layout result that arrives after disposal. The application owner separately destroys its Native UI handle. React and Vue applications should keep the same device integration above routed pages, using their application lifecycle cleanup.
-
-| Device layout                          | Web layout                                                                      |
-| -------------------------------------- | ------------------------------------------------------------------------------- |
-| `leading` or `trailing`                | Reserves the measured inset at the logical edge and applies the toolbar origin. |
-| `null`, including the browser fallback | Restores ordinary layout; no side rail is forced.                               |
-
-The standard service does not force browser placement. A manual edge is only for the [optional browser preview](#optional-browser-preview). If Native UI is already active, merge only the service initialization into that existing owner; do not execute the new startup call again. For application-owned CSS, see [Foldable integration](https://webview-native-ui.com/projects/capacitor-native-ui/docs/vertical-bars#use-with-capacitor-foldable).
+The application owner handles startup and disposal. The device module applies `edge`, `inset` and `toolbarTop` through the theme; Native UI owns projection and checks native availability. A null edge restores ordinary layout.
 
 ### Initial layout timing
 
@@ -194,7 +126,7 @@ Keep your existing click handlers, routing and form associations. By default, ac
 
 See [Choose button appearance](https://webview-native-ui.com/projects/capacitor-native-ui/docs/vertical-bars#choose-button-appearance) for appearance settings and local overrides.
 
-The default is `system`: SwiftUI styles vertical buttons and tints their icons. If your existing theme should supply their fill and colors, replace only the `enableNativeUI` call in step 3 with the following; keep the Foldable subscription:
+The default is `system`: SwiftUI styles vertical buttons and tints their icons. If your existing theme should supply their fill and colors, set the options on the application's existing startup call; keep the device connection:
 
 ```ts
 const shell = await enableNativeUI({
