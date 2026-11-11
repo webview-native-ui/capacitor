@@ -26,6 +26,7 @@ export const read = (group: HTMLElement, id: Identify, options: VerticalControlA
   }
   const candidate = createCandidate(group, tag, id, options);
   if (!append(candidate, group as HTMLIonMenuButtonElement, id)) return;
-  if (!inVerticalToolbarLayout(group)) candidate.control.items[0].buttonFill = 'clear';
+  if (!inVerticalToolbarLayout(group) && group.parentElement?.matches('ion-buttons:is(.ios-theme-disabled, .ios26-disabled)'))
+    candidate.control.items[0].buttonFill = 'clear';
   return candidate;
 };

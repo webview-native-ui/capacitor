@@ -199,11 +199,17 @@ for (const tag of ['img', 'canvas']) {
   });
 }
 
-test.each([true, false])('single toolbar actions keep Ionic button semantics with grouping=%s', (buttonGroup) => {
+test.each([
+  [true, false],
+  [false, false],
+  [true, true],
+  [false, true],
+])('single toolbar actions grouping=%s themeDisabled=%s', (buttonGroup, themeDisabled) => {
   const results = ['ion-button', 'ion-menu-button'].map((tag) => {
     mount();
     const group = document.querySelector<HTMLElement>('#group')!;
     document.querySelector('ion-back-button')!.remove();
+    if (themeDisabled) group.classList.add('ios-theme-disabled');
     group.setAttribute('data-transition-id', 'container');
     group.innerHTML = `<${tag} class="ios button-clear" id="action" data-transition-id="action">Menu</${tag}>`;
     const action = group.firstElementChild as HTMLElement & { type: string; fill?: string };
@@ -221,7 +227,7 @@ test.each([true, false])('single toolbar actions keep Ionic button semantics wit
     assignToolbarTransitionIds([candidate]);
     expect(candidate.element).toBe(action);
     expect(candidate.actions.get(candidate.control.items[0].id)).toBe(action);
-    expect(candidate.control.items[0].buttonFill).toBe('clear');
+    expect(candidate.control.items[0].buttonFill).toBe(themeDisabled ? 'clear' : undefined);
     const { kind: _kind, ...control } = candidate.control;
     return control;
   });

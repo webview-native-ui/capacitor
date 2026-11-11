@@ -23,6 +23,11 @@ export const read = (element: HTMLElement, id: Identify, options: VerticalContro
   const candidate = createCandidate(element, tag, id, options);
   const item = appendItem(candidate, element, id);
   if (!item) return;
-  if (!verticalBars && (fill === 'clear' || (group && button.fill === undefined))) item.buttonFill = 'clear';
+  if (
+    !verticalBars &&
+    (fill === 'clear' || (group && button.fill === undefined)) &&
+    (!group || group.matches('.ios-theme-disabled, .ios26-disabled'))
+  )
+    item.buttonFill = 'clear';
   return candidate;
 };
