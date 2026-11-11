@@ -33,7 +33,13 @@ void Foldable.addListener('layoutChange', () => void updateLayout().catch(consol
 
 **Vertical Bars is enabled by default**, together with ordinary controls. Connect device layout notifications; supported devices choose rail placement and other devices retain Web layout.
 
-Follow [Ionic setup](docs/setup.md) for the complete stylesheet, startup, device layout and native build steps. Keep another Web theme with [the existing-theme setup](docs/ionic-vertical-bars.md), or use [HTML setup](docs/framework-independent.md) without Ionic. Native UI does not own application state, routing or theme selection.
+| Your app                             | Installation guide                                  |
+| ------------------------------------ | --------------------------------------------------- |
+| Ionic with the standard iOS 27 theme | [Ionic setup](docs/setup.md)                        |
+| Ionic with an existing Web theme     | [Existing-theme setup](docs/ionic-vertical-bars.md) |
+| HTML without Ionic                   | [HTML setup](docs/framework-independent.md)         |
+
+Native UI does not own application state, routing or theme selection.
 
 ## How projection works
 
