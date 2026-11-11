@@ -16,8 +16,19 @@ Use the theme's single stylesheet and `ios27ThemeConfig` preset, then start one 
 
 ```ts
 import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
+import { Foldable } from '@erkamyaman/capacitor-foldable';
+import { resolveVerticalBarsLayout } from '@rdlabo/capacitor-native-ui/integration';
+import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
 
 await enableNativeUI();
+
+const updateLayout = async () => {
+  setVerticalBarsLayout(await resolveVerticalBarsLayout(Foldable));
+};
+
+void Foldable.addListener('layoutChange', () => void updateLayout().catch(console.error))
+  .then(updateLayout)
+  .catch(console.error);
 ```
 
 **Vertical Bars is enabled by default**, together with ordinary controls. Connect device layout notifications; supported devices choose rail placement and other devices retain Web layout.
