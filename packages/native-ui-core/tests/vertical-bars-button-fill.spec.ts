@@ -1,3 +1,4 @@
+import { assignToolbarTransitionIds } from '../src/native/shared/transition-identity';
 import { prehideVerticalBarsToolbarSources } from '../src/native/prehide';
 import { afterEach, expect, test } from 'vitest';
 import { readCandidate, selector } from '../src/native/components';
@@ -212,17 +213,33 @@ test.each([true, false])('native menu action is discovered with grouping %s', (b
     element.getBoundingClientRect = () => ({ x: 0, y: 0, width: 44, height: 44, top: 0, left: 0, right: 44, bottom: 44 }) as DOMRect;
   });
   const menu = document.querySelector('ion-menu-button') as HTMLIonMenuButtonElement;
+  menu.getBoundingClientRect = () => ({ x: 8, y: 2, width: 32, height: 40, top: 2, left: 8, right: 40, bottom: 42 }) as DOMRect;
+  menu.setAttribute('data-transition-id', 'menu-action');
   menu.type = 'button';
   menu.textContent = 'Menu';
   const shadow = menu.shadowRoot ?? menu.attachShadow({ mode: 'open' });
-  shadow.innerHTML = '<span>Menu</span>';
+  shadow.innerHTML =
+    '<button part="native" style="padding-inline-start: 11px; padding-inline-end: 7px"><span class="button-inner">Menu</span></button>';
+  menu.parentElement!.setAttribute('data-transition-id', 'menu-group');
   const prehide = prehideVerticalBarsToolbarSources(document, undefined, undefined, { controls: { buttonGroup: buttons, button: true } });
   try {
     const candidates = Array.from(document.querySelectorAll<HTMLElement>(selector))
       .map((element) => readCandidate(element, (source) => source.localName))
       .filter((candidate) => !!candidate);
     expect(candidates).toHaveLength(1);
-    expect(candidates[0]!.element.localName).toBe(buttons ? 'ion-buttons' : 'ion-menu-button');
+    expect(candidates[0]!.element.localName).toBe('ion-menu-button');
+    expect(candidates[0]!.control).toMatchObject({ x: 8, y: 2, width: 32, height: 40 });
+    expect(candidates[0]!.control.items[0]).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 32,
+      height: 40,
+      contentInsetLeading: 11,
+      contentInsetTrailing: 7,
+      imagePadding: 0,
+    });
+    assignToolbarTransitionIds(candidates as NonNullable<(typeof candidates)[number]>[]);
+    expect(candidates[0]!.control.transitionId).toContain(buttons ? 'menu-group' : 'menu-action');
   } finally {
     prehide.stop();
   }

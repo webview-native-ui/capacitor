@@ -33,6 +33,7 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
     const position = slot === 'end' ? counts.get(slot)! - 1 : (counts.get(slot) ?? 0);
     counts.set(slot, slot === 'end' ? position : position + 1);
     const explicitSurface =
+      candidate.transitionOwner?.getAttribute('data-transition-id')?.trim() ||
       element.getAttribute('data-transition-id')?.trim() ||
       (!element.matches('ion-buttons') && control.items.length === 1
         ? candidate.actions.get(control.items[0].id)?.getAttribute('data-transition-id')?.trim()

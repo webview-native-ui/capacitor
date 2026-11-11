@@ -32,6 +32,7 @@ export const read = (group: HTMLElement, id: Identify, options: VerticalControlA
   if (!inFixedToolbar(group) || children.length !== 1) return;
   const button = children[0];
   if (!button?.matches(`${tag}${group.closest('ion-app.ios-theme-vertical-bars') ? '' : '.ios'}`)) return;
-  const candidate = createCandidate(group, tag, id, options);
+  const candidate = createCandidate(button, tag, id, options);
+  candidate.transitionOwner = group;
   return append(candidate, button as HTMLIonMenuButtonElement, id) ? candidate : undefined;
 };

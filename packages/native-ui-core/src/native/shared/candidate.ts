@@ -3,6 +3,7 @@ import { frame, isDark, isVerticalBarsSource, text, visible } from './dom.js';
 import { iconSource, type createIconRenderer } from './icons.js';
 
 export interface Candidate {
+  transitionOwner?: HTMLElement;
   scrollElement?: HTMLElement;
   assets?: { signature: string; render(renderer: ReturnType<typeof createIconRenderer>): Promise<void> };
   buttonProjection?: 'system' | 'source';
@@ -147,7 +148,7 @@ export const appendItem = (
     item.iconPosition = (icons[0] ?? svg).getAttribute('slot') === 'end' ? 'trailing' : 'leading';
     candidate.icons.push({ item, source });
   }
-  if (native && child.matches('ion-button, ion-back-button')) {
+  if (native && child.matches('ion-button, ion-back-button, ion-menu-button')) {
     const style = getComputedStyle(native);
     const icon = icons[0] ?? svg;
     const iconStyle = icon && getComputedStyle(icon);
