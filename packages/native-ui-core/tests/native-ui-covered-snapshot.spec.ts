@@ -3,6 +3,7 @@ const projectionState = getProjectionState(document);
 const { isProjectionMutation } = projectionState;
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createCoveredSnapshots } from '../src/native/shared/covered-snapshot';
+import type { WebProjectionInteraction } from '@webview-native-ui/engine';
 import type { NativeUIPlugin } from '../src/native/definitions';
 import { createCandidate } from '../src/native/shared/candidate';
 let managers: Awaited<ReturnType<typeof createCoveredSnapshots>>[];
@@ -33,7 +34,7 @@ const fixture = async (modal?: HTMLIonModalElement) => {
     modal.append(clone);
     projectionState.setTarget(button, clone);
   }
-  let interaction: (event: { active: boolean }) => void = () => {};
+  let interaction: (event: WebProjectionInteraction) => void = () => {};
   let serial = 0;
   const capture = () => ({
     token: `image-${++serial}`,
@@ -57,7 +58,16 @@ const fixture = async (modal?: HTMLIonModalElement) => {
     callbacks,
   );
   managers.push(manager);
-  return { manager, button, candidate, bridge, capture, callbacks, touch: (active: boolean) => interaction({ active }) };
+  return {
+    manager,
+    button,
+    candidate,
+    bridge,
+    capture,
+    callbacks,
+    interaction: (event: WebProjectionInteraction) => interaction(event),
+    touch: (active: boolean) => interaction({ active }),
+  };
 };
 test.each([false, true])('only Modal rail preparation requests renderer-only capture: modal=%s', async (insideModal) => {
   const modal = insideModal ? document.createElement('ion-modal') : undefined;
@@ -74,6 +84,40 @@ test.each([false, true])('only Modal rail preparation requests renderer-only cap
     expect(f.manager.webSurface).toBe(false);
   }
 });
+test.each(['waiting', 'processing'] as const)('forwards %s contact ownership through the plugin transport', async (captureState) => {
+  const f = await fixture();
+  let finish!: (value: ReturnType<typeof f.capture>) => void;
+  f.bridge.mockImplementation(async (request) =>
+    request.action === 'prepare'
+      ? await new Promise<ReturnType<typeof f.capture>>((resolve) => {
+          finish = resolve;
+        })
+      : { shown: true },
+  );
+  f.manager.consider(1, [f.candidate]);
+  await vi.advanceTimersByTimeAsync(1);
+  f.interaction({ active: false, capturePolicy: 'preinteraction' });
+  await vi.advanceTimersByTimeAsync(1);
+  const request = f.bridge.mock.calls.find(([value]) => value.action === 'prepare')?.[0] as
+    { captureID: string; captureOwner: string; captureDelayMs: number } | undefined;
+  expect(request).toMatchObject({ captureID: expect.any(String), captureOwner: expect.any(String), captureDelayMs: 50 });
+  f.interaction({ active: true, captureID: request!.captureID, captureOwner: request!.captureOwner, captureState, mainThreadMs: 1 });
+  f.button.setAttribute('disabled', '');
+  f.manager.consider(2, [f.candidate]);
+  f.manager.begin();
+  finish(f.capture());
+  await drain();
+  expect(f.manager.token).toBe('image-1');
+  expect(f.bridge.mock.calls.filter(([value]) => value.action === 'prepare')).toHaveLength(1);
+  expect(projectionState.imageOwns(f.button)).toBe(true);
+  f.interaction({ active: false });
+  f.manager.end();
+  f.manager.updated(undefined, ['button'], 3);
+  await drain();
+  expect(projectionState.imageOwns(f.button)).toBe(false);
+  expect(f.bridge).toHaveBeenCalledWith({ action: 'restored', token: 'image-1' });
+});
+
 test('ordinary Modal controls do not enter the rail image handoff', async () => {
   const modal = document.createElement('ion-modal');
   document.body.append(modal);
@@ -247,13 +291,16 @@ test('horizontal and vertical tabs share the prepared image path', async () => {
   expect(f.bridge).toHaveBeenCalledWith(expect.objectContaining({ action: 'prepare', ids: ['button'] }));
 });
 
-test('layout or appearance changes invalidate the old image before a new one is ready', async () => {
+test('appearance changes retain comparison pixels but block ordinary presentation', async () => {
   const f = await fixture();
   f.manager.consider(1, [f.candidate]);
   await drain();
   f.candidate.control.dark = !f.candidate.control.dark;
   f.manager.consider(2, [f.candidate]);
   expect(f.manager.begin()).toBeUndefined();
+  expect(f.manager.token).toBeUndefined();
+  expect(f.bridge).not.toHaveBeenCalledWith({ action: 'release', token: 'image-1' });
+  await f.manager.destroy();
   expect(f.bridge).toHaveBeenCalledWith({ action: 'release', token: 'image-1' });
 });
 
