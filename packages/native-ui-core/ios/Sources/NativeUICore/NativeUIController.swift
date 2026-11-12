@@ -48,7 +48,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
             }
         }
         #endif
-        for name in [UIApplication.didEnterBackgroundNotification, UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardWillHideNotification,
+        for name in [UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardWillHideNotification,
                      UIDevice.orientationDidChangeNotification] {
             observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] notification in
                 guard let self else { return }
@@ -62,17 +62,11 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
                         self.keyboardVisible = !overlap.isNull && overlap.width > 0 && overlap.height > 0
                     }
                 }
-                let suspend = name == UIApplication.didEnterBackgroundNotification
-                if suspend {
-                    self.resetCoveredSnapshots()
-                    self.host?.isHidden = true
-                    self.verticalBars?.view.isHidden = true
-                    self.extensionControllers.values.forEach { $0.view.isHidden = true }
-                }
+                // Keep the last rendered surfaces for the app switcher. Foreground
+                // refresh reconciles them through the normal update pipeline.
                 var searchOwnsKeyboard = self.verticalBars?.ownsKeyboardChrome == true
                 self.searchControllers.values.forEach { controller in
                     if controller.ownsKeyboardChrome { searchOwnsKeyboard = true }
-                    if suspend { controller.surface.isHidden = true }
                 }
                 if keyboard {
                     if !searchOwnsKeyboard {
@@ -87,7 +81,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
                      UIDevice.orientationDidChangeNotification] {
             observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 if name == UIResponder.keyboardDidHideNotification { self?.keyboardVisible = false }
-                self?.environment.triggerWindowJSEvent(eventName: "nativeUIRefresh", data: name == UIApplication.didBecomeActiveNotification ? "{\"retireSearch\":true}" : "{}")
+                self?.environment.triggerWindowJSEvent(eventName: "nativeUIRefresh")
                 if name == UIApplication.didBecomeActiveNotification { self?.notifyWebViewMetricsChange() }
             })
         }

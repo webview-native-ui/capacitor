@@ -30,13 +30,16 @@ final class NativeUIPluginLifecycleTests: XCTestCase {
         XCTAssertFalse(fixture.host.isHidden)
     }
 
-    @MainActor func testBackgroundSuspendsControlsAndActiveRefreshRestoresThem() async throws {
+    @MainActor func testBackgroundPreservesControlsAndActiveRefreshReconcilesThem() async throws {
         let fixture = try await project()
         NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
-        XCTAssertTrue(fixture.host.isHidden)
+        XCTAssertFalse(fixture.host.isHidden)
+        let control = try XCTUnwrap(fixture.host.subviews.first)
         NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
         XCTAssertTrue(fixture.bridge.events.contains("nativeUIRefresh"))
+        XCTAssertFalse(fixture.host.isHidden)
         try await update(fixture.plugin, width: 390, revision: 2)
+        XCTAssertTrue(fixture.host.subviews.first === control)
         XCTAssertFalse(fixture.host.isHidden)
     }
 
@@ -70,6 +73,9 @@ final class NativeUIPluginLifecycleTests: XCTestCase {
         XCTAssertTrue(control.isHidden)
         NotificationCenter.default.post(name: UIDevice.orientationDidChangeNotification, object: UIDevice.current)
         XCTAssertTrue(control.isHidden || fixture.host.isHidden, "A covered native control must not reappear above its Web overlay")
+        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
+        XCTAssertTrue(control.isHidden, "Background and foreground must preserve covered ownership")
         let part: JSObject = ["ids": ["header-action"], "x": 16.0, "y": 60.0, "width": 44.0, "height": 44.0]
         let restored = try await snapshot(["action": "restore", "token": token, "viewportWidth": 390.0, "parts": [part]])
         XCTAssertEqual(restored["shown"] as? Bool, true, "Orientation must preserve the capture used on return")
