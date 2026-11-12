@@ -79,7 +79,7 @@ final class NativeUIPluginLifecycleTests: XCTestCase {
         withExtendedLifetime(fixture.plugin) {}
     }
 
-    @MainActor func testSnapshotInteractionForwardsCaptureOwnershipBeforeDispatch() async throws {
+    @MainActor func testSnapshotInteractionForwardsEnginePayloadToCapacitor() async throws {
         let fixture = try await project()
         let window = PreinteractionSnapshotWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
         window.rootViewController = fixture.bridge.viewController
@@ -107,22 +107,16 @@ final class NativeUIPluginLifecycleTests: XCTestCase {
            error: { _ in XCTFail("Capture failed"); completed.fulfill() })!
         fixture.plugin.coveredSnapshot(request)
         await fulfillment(of: [policy], timeout: 3)
-        XCTAssertEqual(window.draws, 0, "The waiting request must be armed without acquiring pixels")
+        // Generate a public Engine notification; acquisition behavior is tested in Engine.
         let event = PreinteractionEvent(window: window)
         window.perform(#selector(UIWindow.sendEvent(_:)), with: event)
-        XCTAssertEqual(window.draws, 1)
-        XCTAssertEqual(window.drawsAtDispatch, [1], "Capture precedes the original Window dispatch")
-        XCTAssertEqual(events.last?["captureState"] as? String, "waiting")
+        XCTAssertEqual(events.last?["active"] as? Bool, true)
+        XCTAssertNotNil(events.last?["captureState"] as? String)
         XCTAssertEqual(events.last?["captureID"] as? String, "request-1")
         XCTAssertEqual(events.last?["captureOwner"] as? String, "surface-1")
         XCTAssertNotNil(events.last?["mainThreadMs"] as? Double)
-        window.perform(#selector(UIWindow.sendEvent(_:)), with: event)
-        XCTAssertEqual(events.last?["captureState"] as? String, "processing")
-        XCTAssertEqual(window.draws, 1, "Processing pixels must not be acquired again")
         await fulfillment(of: [completed], timeout: 5)
         let token = try XCTUnwrap(capture["token"] as? String)
-        window.perform(#selector(UIWindow.sendEvent(_:)), with: event)
-        XCTAssertEqual(window.draws, 1, "Completed pixels must not be acquired again")
         let released = expectation(description: "Release capture through Capacitor")
         fixture.plugin.coveredSnapshot(CAPPluginCall(callbackId: "release", methodName: "coveredSnapshot",
             options: ["action": "release", "token": token],
@@ -228,14 +222,11 @@ private final class LifecycleBridge: NSObject, CAPBridgeProtocol {
 }
 
 private final class PreinteractionSnapshotWindow: UIWindow {
-    var draws = 0
-    var drawsAtDispatch: [Int] = []
     override func drawHierarchy(in rect: CGRect, afterScreenUpdates: Bool) -> Bool {
-        draws += 1
         UIColor.white.setFill(); UIRectFill(rect)
         return true
     }
-    override func sendEvent(_ event: UIEvent) { drawsAtDispatch.append(draws) }
+    override func sendEvent(_ event: UIEvent) {}
 }
 private final class PreinteractionTouch: UITouch {
     let target: UIWindow
