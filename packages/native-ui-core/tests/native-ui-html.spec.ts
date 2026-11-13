@@ -1467,3 +1467,147 @@ test('source retirement replaces an ended image lease before rendering the next 
   expect(updates.some((snapshot) => snapshot.controls.length === 0 && snapshot.coveredSnapshotToken === undefined)).toBe(true);
   expect(updates.at(-1)?.coveredSnapshotToken).toBeUndefined();
 });
+
+test('background preserves native controls and foreground refreshes without overlapping updates', async () => {
+  const { source, options } = mount();
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const listeners = new Map<string, (event: any) => void>();
+  const snapshots: NativeUISnapshot[] = [];
+  const plugin = {
+    addListener: async (name: string, callback: (event: any) => void) => {
+      listeners.set(name, callback);
+      return {
+        remove: async () => {
+          listeners.delete(name);
+        },
+      };
+    },
+    update: async (snapshot: NativeUISnapshot) => {
+      snapshots.push(snapshot);
+      return { revision: snapshot.revision };
+    },
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  let hidden = false;
+  vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
+  let release: (() => void) | undefined;
+  let hold = false;
+  let active = 0;
+  let maxActive = 0;
+  plugin.update = async (snapshot) => {
+    active++;
+    maxActive = Math.max(maxActive, active);
+    snapshots.push(snapshot);
+    if (hold)
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    active--;
+    return { revision: snapshot.revision };
+  };
+  const handle = await createRuntime(document, plugin, options);
+  handles.push(handle);
+  await vi.waitFor(() => expect(handle.getStatus().projected).toBe(1));
+  hold = true;
+  source.textContent = 'Pending';
+  await vi.waitFor(() => expect(release).toBeDefined());
+  hidden = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  const count = snapshots.length;
+  release!();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(snapshots).toHaveLength(count);
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  source.textContent = 'Latest';
+  hold = false;
+  hidden = false;
+  document.dispatchEvent(new Event('visibilitychange'));
+  window.dispatchEvent(new Event('nativeUIRefresh'));
+  await vi.waitFor(() => expect(snapshots.at(-1)?.controls[0]?.items[0]?.accessibilityLabel).toBe('Latest'));
+  expect(snapshots.every((snapshot) => snapshot.controls.length === 1)).toBe(true);
+  expect(maxActive).toBe(1);
+});
+
+test.each(['reject', 'mismatched-revision'] as const)('obsolete %s cannot clear preserved controls', async (failure) => {
+  const { source, options } = mount();
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const listeners = new Map<string, (event: any) => void>();
+  const snapshots: NativeUISnapshot[] = [];
+  const plugin = {
+    addListener: async (name: string, callback: (event: any) => void) => {
+      listeners.set(name, callback);
+      return {
+        remove: async () => {
+          listeners.delete(name);
+        },
+      };
+    },
+    update: async (snapshot: NativeUISnapshot) => {
+      snapshots.push(snapshot);
+      return { revision: snapshot.revision };
+    },
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  let hidden = false;
+  vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
+  const clear = vi.fn(async () => {});
+  plugin.clear = clear;
+  let mode: 'normal' | 'retry' | 'hold' = 'normal';
+  let release: (() => void) | undefined;
+  plugin.update = async (snapshot) => {
+    snapshots.push(snapshot);
+    if (mode === 'retry') {
+      mode = 'hold';
+      throw new Error('Transient failure');
+    }
+    if (mode === 'hold') {
+      await new Promise<void>((resolve, reject) => {
+        release = () => (failure === 'reject' ? reject(new Error('Obsolete failure')) : resolve());
+      });
+      return { revision: snapshot.revision + 100 };
+    }
+    return { revision: snapshot.revision };
+  };
+  const handle = await createRuntime(document, plugin, options);
+  handles.push(handle);
+  await vi.waitFor(() => expect(handle.getStatus().projected).toBe(1));
+  mode = failure === 'reject' ? 'retry' : 'hold';
+  source.textContent = 'Pending';
+  await vi.waitFor(() => expect(release).toBeDefined());
+  hidden = true;
+  document.dispatchEvent(new Event('visibilitychange'));
+  release!();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(clear).not.toHaveBeenCalled();
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  mode = 'normal';
+  source.textContent = 'Latest';
+  hidden = false;
+  document.dispatchEvent(new Event('visibilitychange'));
+  await vi.waitFor(() => expect(snapshots.at(-1)?.controls[0]?.items[0]?.accessibilityLabel).toBe('Latest'));
+  expect(clear).not.toHaveBeenCalled();
+});

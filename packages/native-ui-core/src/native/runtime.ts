@@ -291,6 +291,7 @@ export const createRuntime = async (
     reconnect: !!connection,
   });
   const schedule = updateQueue.request;
+  let visibilityGeneration = 0;
   const search = createSearchSupport(doc, id, schedule);
   const candidateSources = (candidate: Candidate) => candidate.sources ?? [candidate.element];
   const setRejected = (element: HTMLElement, value: boolean) => {
@@ -695,6 +696,8 @@ export const createRuntime = async (
     win.dispatchEvent(new Event('nativeUIRefresh'));
   };
   const updateNative = async (snapshot: NativeUISnapshot, send: NativeUpdateSender) => {
+    if (doc.hidden) return;
+    const generation = visibilityGeneration;
     // Native can apply this update even if retention or viewport changes prevent
     // accepting its response. Only a fully accepted snapshot is safe to deduplicate.
     lastSnapshot = '';
@@ -704,12 +707,24 @@ export const createRuntime = async (
       return;
     }
     lastUpdateStarted = win.performance.now();
-    return send(
-      () => bounded(plugin.update(snapshot)),
+    const result = await send(
+      async () => {
+        try {
+          const result = await bounded(plugin.update(snapshot));
+          // Discard obsolete replies before the queue validates or retries them.
+          if (doc.hidden || generation !== visibilityGeneration) return;
+          return result;
+        } catch (error) {
+          if (doc.hidden || generation !== visibilityGeneration) return;
+          throw error;
+        }
+      },
       (result) => {
-        if (result.revision !== snapshot.revision) throw new Error('Native UI revision mismatch');
+        if (result && result.revision !== snapshot.revision) throw new Error('Native UI revision mismatch');
       },
     );
+    if (doc.hidden || generation !== visibilityGeneration) return;
+    return result;
   };
   const coverWebOverlay = () => {
     if (stopped || retentions.size || manualSuspensions.size) return;
@@ -724,6 +739,8 @@ export const createRuntime = async (
     imagesFor(topModal(doc))?.begin();
   };
   const sync = async (send: NativeUpdateSender) => {
+    // Preserve native ownership while hidden; never publish an empty background snapshot.
+    if (doc.hidden) return;
     followImageMotion();
     for (const modal of projectionSurfaces.keys()) {
       if (modal.isConnected) continue;
@@ -864,7 +881,7 @@ export const createRuntime = async (
       await Promise.race([assets, new Promise<void>((resolve) => (interruptAssets = resolve))]);
       interruptAssets = undefined;
       candidates = candidates.filter((candidate) => !failedAssets.has(candidate));
-      if (stopped || updateQueue.dirty || (retentions.size && !manualSuspensions.size)) return;
+      if (stopped || doc.hidden || updateQueue.dirty || (retentions.size && !manualSuspensions.size)) return;
       const retained = new Set([...candidates.flatMap(candidateSources), ...(verticalGesture?.sources ?? [])]);
       const removed = Array.from(nativeOwners.keys()).filter((element) => !retained.has(element));
       if (removed.some(isVerticalBarsSource)) {
@@ -873,7 +890,7 @@ export const createRuntime = async (
           const geometry = await bounded(
             plugin.getVerticalBarsGeometry({ viewportWidth: win.innerWidth, ids: [...actions.keys(), 'BackButton', '__tabBar'] }),
           );
-          if (stopped || updateQueue.dirty || (retentions.size && !manualSuspensions.size)) return;
+          if (stopped || doc.hidden || updateQueue.dirty || (retentions.size && !manualSuspensions.size)) return;
           if (geometry.revision === acceptedRevision && size === `${win.innerWidth}:${win.innerHeight}`) {
             for (const tabBar of removed.filter((element) => element.matches('ion-tab-bar'))) {
               tabGeometry.get(tabBar)?.();
@@ -915,7 +932,7 @@ export const createRuntime = async (
         // native snapshot over the destination. Stack transitions still need the paint.
         if (!handoffInstant) {
           await painted();
-          if (stopped || updateQueue.dirty) return;
+          if (stopped || doc.hidden || updateQueue.dirty) return;
         }
       }
       const root = doc.querySelector('ion-app.ios-theme-vertical-bars');
@@ -1505,10 +1522,9 @@ export const createRuntime = async (
     schedule();
   };
   on(doc, 'visibilitychange', () => {
-    if (doc.hidden) {
-      getNativeSearchBindings(doc).forEach((binding) => search.retire(binding));
-      schedule();
-    } else refreshLayout();
+    // Invalidate collection and acknowledgements started before this visibility change.
+    visibilityGeneration++;
+    refreshLayout();
   });
   on(win, 'resize', () => {
     navigation.clear();
