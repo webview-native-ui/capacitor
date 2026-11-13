@@ -254,3 +254,14 @@ test.each([true, false])('Android enables image handoff only when native support
   const events = bridge.addListener.mock.calls.map((args) => (args as unknown[])[0]);
   expect(events.includes('snapshotInteraction')).toBe(supported);
 });
+
+test.each([undefined, true, false])('startup relays experimentalInPlaceFilteringEnabled=%s to the native bridge', async (enabled) => {
+  shell = await enableNativeUI({ root, experimentalInPlaceFilteringEnabled: enabled });
+  expect(bridge.configure).toHaveBeenCalledWith(expect.objectContaining({ experimentalInPlaceFilteringEnabled: enabled ?? true }));
+});
+
+test('Glass capture configuration identity preserves defaults and rejects a conflicting active startup', async () => {
+  shell = await enableNativeUI({ root });
+  expect(await enableNativeUI({ root, experimentalInPlaceFilteringEnabled: true })).toBe(shell);
+  await expect(enableNativeUI({ root, experimentalInPlaceFilteringEnabled: false })).rejects.toThrow();
+});

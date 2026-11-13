@@ -52,6 +52,10 @@ export interface NativeUIOptions {
    */
   extensions?: readonly NativeUIExtension[];
   ionic?: IonicProjectionOptions;
+  /** iOS 26+: use the experimental private-API Glass capture workaround. Defaults to true.
+   * Process-wide native setting. Disabling execution does not remove private API code from the binary.
+   */
+  experimentalInPlaceFilteringEnabled?: boolean;
   /** Log Web fallback reasons. Defaults to false. */
   debug?: boolean;
 }
@@ -290,7 +294,7 @@ export interface CoveredSnapshot {
 }
 
 export interface NativeUIPlugin {
-  configure(options?: { suppressScrollEdgeEffect?: boolean }): Promise<{
+  configure(options?: { suppressScrollEdgeEffect?: boolean; experimentalInPlaceFilteringEnabled?: boolean }): Promise<{
     supported: boolean;
     extensions?: string[];
     modalAnimation?: boolean;

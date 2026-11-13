@@ -180,6 +180,7 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
   const configuration = JSON.stringify([
     options.source ?? 'ionic',
     options.debug === true,
+    options.experimentalInPlaceFilteringEnabled !== false,
     options.ionic?.auto !== false,
     options.verticalBars?.enabled !== false,
     options.verticalBars?.placement?.edge,
@@ -294,7 +295,12 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
         const ordinaryControls = (['button', 'backButton', 'tabs', 'segment', 'fab'] as const).some((kind) =>
           controlDefault(options, kind, false),
         );
-        const capabilities = await bounded(plugin.configure({ suppressScrollEdgeEffect: ordinaryControls }));
+        const capabilities = await bounded(
+          plugin.configure({
+            suppressScrollEdgeEffect: ordinaryControls,
+            experimentalInPlaceFilteringEnabled: options.experimentalInPlaceFilteringEnabled ?? true,
+          }),
+        );
         if (!capabilities.supported) return fallback('Native UI is unavailable on this device');
         if (capabilities.connectionState) connection = createNativeConnection(document, plugin);
         const listen = connection?.listen ?? plugin.addListener.bind(plugin);

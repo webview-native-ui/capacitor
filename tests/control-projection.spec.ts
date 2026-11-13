@@ -85,6 +85,6 @@ test.each([
 ] as const)('controls=%s preserves Web scroll-edge effects without ordinary default selection', async (controls, suppress) => {
   nativeWebViewMetrics.radius = 0;
   runtime = await enableNativeUI({ controls });
-  expect(bridge.configure).toHaveBeenLastCalledWith({ suppressScrollEdgeEffect: suppress });
+  expect(bridge.configure).toHaveBeenLastCalledWith({ suppressScrollEdgeEffect: suppress, experimentalInPlaceFilteringEnabled: true });
   expect(nativeWebViewMetrics.radius).toBe(suppress ? 48 : 0);
 });

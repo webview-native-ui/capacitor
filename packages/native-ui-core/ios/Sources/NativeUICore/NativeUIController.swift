@@ -213,6 +213,7 @@ public final class NativeUIController: NSObject, UITabBarDelegate {
                 self.restoreTopEdge = nil
                 self.resetCoveredSnapshots()
                 self.removeControls()
+                NativeUICoveredSnapshots.experimentalInPlaceFilteringEnabled = call.getBool("experimentalInPlaceFilteringEnabled") ?? true
                 self.revision = 0
                 self.connectionSession = UUID().uuidString
                 if #available(iOS 26.0, *) {

@@ -1,11 +1,31 @@
 import XCTest
 import Capacitor
+import WebViewNativeUIEngine
 import UIKit
 import WebKit
 @testable import NativeUIPlugin
 @testable import NativeUICore
 
 final class NativeUIPluginLifecycleTests: XCTestCase {
+    @MainActor func testConfigureRelaysGlassCapturePolicyAndResetsOmittedOptionToDefault() async throws {
+        let original = NativeUICoveredSnapshots.experimentalInPlaceFilteringEnabled
+        defer { NativeUICoveredSnapshots.experimentalInPlaceFilteringEnabled = original }
+        let bridge = LifecycleBridge()
+        let plugin = NativeUIPlugin()
+        plugin.bridge = bridge
+        plugin.webView = bridge.webView
+        plugin.load()
+        for enabled: Bool? in [false, true, false, nil] {
+            var options: JSObject = [:]
+            if let enabled { options["experimentalInPlaceFilteringEnabled"] = enabled }
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                plugin.configure(CAPPluginCall(callbackId: "glass-policy", methodName: "configure", options: options,
+                    success: { _, _ in continuation.resume() }, error: { _ in continuation.resume(throwing: NSError(domain: "GlassCaptureConfigurationTests", code: 1)) })!)
+            }
+            XCTAssertEqual(NativeUICoveredSnapshots.experimentalInPlaceFilteringEnabled, enabled ?? true)
+        }
+    }
+
     @MainActor func testOrientationNotificationsKeepProjectedControlsVisibleWithoutLayoutChanges() async throws {
         let fixture = try await project()
         let bounds = fixture.host.bounds
