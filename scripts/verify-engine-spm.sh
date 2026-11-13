@@ -22,6 +22,8 @@ const corePackage = JSON.parse(readFileSync('packages/native-ui-core/package.jso
 assert.equal(corePackage.dependencies['@webview-native-ui/engine'], requirement);
 const podspec = readFileSync('RdlaboCapacitorNativeUi.podspec', 'utf8');
 assert.equal(podspec.match(/s\.dependency 'WebViewNativeUIEngine', '([^']+)'/)?.[1], requirement);
+const gradle = readFileSync('android/build.gradle', 'utf8');
+assert.equal(gradle.match(/implementation 'io\.github\.webview-native-ui:engine:([^']+)'/)?.[1], requirement, 'Android must pin the same Engine release');
 assert(!manifest.dependencies.some(entry => entry.fileSystem), 'Installed plugin must not require sibling npm Swift sources');
 assert.deepEqual(manifest.products.find(p => p.name === 'NativeUICore')?.targets, ['NativeUICore']);
 assert.deepEqual(manifest.products.find(p => p.name === 'RdlaboCapacitorNativeUi')?.targets, ['NativeUIPlugin']);

@@ -259,3 +259,17 @@ end
 ```
 
 Adjust the path for your project layout and repeat version alignment when upgrading Native UI. This is CocoaPods compatibility setup, not application UI logic.
+
+## Experimental Liquid Glass capture
+
+On iOS 26+, `experimentalInPlaceFilteringEnabled` defaults to `true`. It enables an experimental **private Apple API** workaround for cold-launch Glass snapshots. To disable it through the Capacitor plugin's startup API:
+
+```ts
+import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
+
+const ui = await enableNativeUI({ experimentalInPlaceFilteringEnabled: false });
+```
+
+The same option is available from `/core`, the standalone Vertical Bars startup, and low-level `NativeUI.configure`. Android ignores it. Startup forwards the boolean through the Capacitor bridge and shared native core to `NativeUICoveredSnapshots.experimentalInPlaceFilteringEnabled`. Omitted or `true` enables it; explicit `false` disables it. A conflicting startup while a runtime is active is rejected: destroy the existing handle before starting with a new setting.
+
+This is a process-wide native Engine policy, so configure it before registering controls from other Engine integrations. Reconfiguration resets this plugin's controls and cached captures; it does not reset other integrations' caches. Native `AppDelegate` changes are not required. The enabled path waits for screen updates, which may increase capture latency. Non-public API usage carries App Store review and future-OS compatibility risks; disabling the option does not remove the helper code from the compiled binary.
