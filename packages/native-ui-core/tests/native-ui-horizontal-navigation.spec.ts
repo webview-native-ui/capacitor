@@ -635,9 +635,20 @@ test.each(['replacement', 'hidden', 'viewport'] as const)('vertical swipe releas
     oldRelease(true);
     release();
     await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe('Menu'));
+  } else if (boundary === 'hidden') {
+    const visibility = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    const count = f.snapshots.length;
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(f.snapshots).toHaveLength(count);
+    expect(f.snapshots.at(-1)?.controls.length).toBeGreaterThan(0);
+    oldRelease(true);
+    visibility.mockReturnValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.waitFor(() => expect(f.snapshots.length).toBeGreaterThan(count));
+    expect(f.snapshots.at(-1)?.verticalBarNavigationPhase).toBeUndefined();
   } else {
-    if (boundary === 'hidden') vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
-    else vi.stubGlobal('visualViewport', { scale: 2, offsetTop: 0 });
+    vi.stubGlobal('visualViewport', { scale: 2, offsetTop: 0 });
     window.dispatchEvent(new Event('nativeUIRefresh'));
     await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls).toEqual([]));
     expect(f.snapshots.at(-1)?.verticalBarNavigationPhase).toBeUndefined();
